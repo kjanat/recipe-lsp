@@ -1,7 +1,7 @@
 {
 	"name": "recipe-lsp",
 	"version": "0.1.0",
-	"description": "Language Server Protocol server for the recipe (.recipe / .rx) pharmacological notation language.",
+	"description": "Language Server Protocol server for the recipe (.recipe) pharmacological notation language.",
 	"keywords": [
 		"lsp",
 		"language-server",
