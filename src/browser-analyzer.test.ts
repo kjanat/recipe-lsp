@@ -74,7 +74,7 @@ beforeAll(() => {
 	mock.module("web-tree-sitter", () => stubModuleExports);
 });
 
-describe("getBrowserRecipeAnalyzer", () => {
+describe("browser analyzer factory", () => {
 	test("constructs an analyzer using URL-based wasm loading", async () => {
 		const { getBrowserRecipeAnalyzer } = await import("./browser-analyzer.ts");
 

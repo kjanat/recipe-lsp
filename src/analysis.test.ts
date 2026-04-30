@@ -117,7 +117,7 @@ describe("analyzeRecipe section ordering", () => {
 	});
 });
 
-describe("hoverForPosition", () => {
+describe("hoverForPosition basics", () => {
 	test("maps UTF-16 positions onto tree-sitter UTF-8 columns", () => {
 		const analysis = analyzer.analyzeRecipe("S/ vóór p.o.");
 		const hover = analyzer.hoverForPosition(analysis, { line: 0, character: 8 });
@@ -131,31 +131,10 @@ describe("hoverForPosition", () => {
 			throw new Error("Expected markdown hover");
 		}
 
-		expect(hover.contents.kind).toBe("markdown");
-		expect(hover.contents.value.includes("Route abbreviation")).toBe(true);
-		expect(hover.contents.value.includes("`p.o.`")).toBe(true);
-	});
-
-	test("resolves hover past 3-byte UTF-8 characters", () => {
-		// € is U+20AC, 3 bytes in UTF-8, 1 JS char
-		const analysis = analyzer.analyzeRecipe("S/ €5 p.o.");
-		const idx = analysis.text.indexOf("p.o.");
-		const hover = analyzer.hoverForPosition(analysis, { line: 0, character: idx });
-		if (!hover || typeof hover.contents === "string" || Array.isArray(hover.contents)) {
-			throw new Error("Expected markdown hover");
-		}
-		expect("value" in hover.contents && hover.contents.value.includes("p.o.")).toBe(true);
-	});
-
-	test("resolves hover past 4-byte UTF-8 characters", () => {
-		// 🍎 is U+1F34E, 4 bytes in UTF-8, 2 JS chars (surrogate pair)
-		const analysis = analyzer.analyzeRecipe("S/ 🍎 p.o.");
-		const idx = analysis.text.indexOf("p.o.");
-		const hover = analyzer.hoverForPosition(analysis, { line: 0, character: idx });
-		if (!hover || typeof hover.contents === "string" || Array.isArray(hover.contents)) {
-			throw new Error("Expected markdown hover");
-		}
-		expect("value" in hover.contents && hover.contents.value.includes("p.o.")).toBe(true);
+		const { kind, value } = hover.contents;
+		expect(kind).toBe("markdown");
+		expect(value.includes("Route abbreviation")).toBe(true);
+		expect(value.includes("`p.o.`")).toBe(true);
 	});
 
 	test("returns dose-unit hover over a unit token", () => {
@@ -167,7 +146,7 @@ describe("hoverForPosition", () => {
 		}
 		let value = "";
 		if ("value" in hover.contents) {
-			value = hover.contents.value;
+			({ value } = hover.contents);
 		}
 		expect(value.toLowerCase()).toContain("unit");
 		expect(value).toContain("`mg`");
@@ -175,12 +154,33 @@ describe("hoverForPosition", () => {
 
 	test("returns null when no node along the parent chain has hover info", () => {
 		const analysis = analyzer.analyzeRecipe("R/ a 1mg");
-		// Position far past EOF: descendant is recipe root; root has no hover info, parent is null.
 		const hover = analyzer.hoverForPosition(analysis, {
 			line: HOVER_LINE_OUT_OF_RANGE,
 			character: HOVER_CHARACTER_OUT_OF_RANGE,
 		});
 		expect(hover).toBeNull();
+	});
+});
+
+describe("hoverForPosition with multi-byte input", () => {
+	test("resolves hover past 3-byte UTF-8 characters", () => {
+		const analysis = analyzer.analyzeRecipe("S/ €5 p.o.");
+		const idx = analysis.text.indexOf("p.o.");
+		const hover = analyzer.hoverForPosition(analysis, { line: 0, character: idx });
+		if (!hover || typeof hover.contents === "string" || Array.isArray(hover.contents)) {
+			throw new Error("Expected markdown hover");
+		}
+		expect("value" in hover.contents && hover.contents.value.includes("p.o.")).toBe(true);
+	});
+
+	test("resolves hover past 4-byte UTF-8 characters", () => {
+		const analysis = analyzer.analyzeRecipe("S/ 🍎 p.o.");
+		const idx = analysis.text.indexOf("p.o.");
+		const hover = analyzer.hoverForPosition(analysis, { line: 0, character: idx });
+		if (!hover || typeof hover.contents === "string" || Array.isArray(hover.contents)) {
+			throw new Error("Expected markdown hover");
+		}
+		expect("value" in hover.contents && hover.contents.value.includes("p.o.")).toBe(true);
 	});
 });
 

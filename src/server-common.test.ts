@@ -3,7 +3,7 @@ import type { NotificationMessage, ResponseMessage } from "vscode-jsonrpc";
 import type { DocumentSymbol, Hover, InitializeResult, PublishDiagnosticsParams } from "vscode-languageserver";
 
 import type { RecipeAnalyzer } from "./analysis.ts";
-import { createLspTestHarness } from "./lsp-test-harness.ts";
+import { createLspTestHarness, type LspTestHarness } from "./lsp-test-harness.ts";
 import { getNodeRecipeAnalyzer } from "./node-analyzer.ts";
 
 const PUBLISH_DIAGNOSTICS = "textDocument/publishDiagnostics";
@@ -20,7 +20,7 @@ const VALID_RECIPE = "R/ a 1mg\nS/ take 1";
 const SECTION_ORDER_BAD_RECIPE = "S/ take 1\nR/ a 1mg";
 
 function publishParams(notification: NotificationMessage): PublishDiagnosticsParams {
-	const params = notification.params;
+	const { params } = notification;
 	if (
 		typeof params !== "object"
 		|| params === null
@@ -37,7 +37,7 @@ function publishParams(notification: NotificationMessage): PublishDiagnosticsPar
 }
 
 function logMessageText(notification: NotificationMessage): string {
-	const params = notification.params;
+	const { params } = notification;
 	if (
 		typeof params !== "object"
 		|| params === null
@@ -50,11 +50,11 @@ function logMessageText(notification: NotificationMessage): string {
 }
 
 function initializeCapabilities(response: ResponseMessage): InitializeResult["capabilities"] {
-	const result = response.result;
+	const { result } = response;
 	if (typeof result !== "object" || result === null || !("capabilities" in result)) {
 		throw new Error("expected initialize result");
 	}
-	const capabilities = result.capabilities;
+	const { capabilities } = result;
 	if (typeof capabilities !== "object" || capabilities === null) {
 		throw new Error("expected initialize capabilities");
 	}
@@ -69,7 +69,7 @@ function symbolsResult(response: ResponseMessage): DocumentSymbol[] {
 }
 
 function hoverResult(response: ResponseMessage): Hover | null {
-	const result = response.result;
+	const { result } = response;
 	if (result === null) {
 		return null;
 	}
@@ -83,30 +83,30 @@ function completionLabels(response: ResponseMessage): unknown[] {
 	if (!Array.isArray(response.result)) {
 		throw new Error("expected completion result");
 	}
-	return response.result.map((item) => {
+	const labels: unknown[] = [];
+	for (const item of response.result) {
 		if (typeof item === "object" && item !== null && "label" in item) {
-			return item.label;
+			labels.push(item.label);
 		}
-	});
+	}
+	return labels;
 }
 
 async function nextDiagnosticsFor(
-	harness: ReturnType<typeof createLspTestHarness>,
+	harness: LspTestHarness,
 	uri: string,
 	after: number,
 ): Promise<PublishDiagnosticsParams> {
-	let cursor = after;
-	while (true) {
-		const notification = await harness.awaitNotification(PUBLISH_DIAGNOSTICS, { after: cursor });
-		const params = publishParams(notification);
-		if (params.uri === uri) {
-			return params;
-		}
-		cursor = harness.allMessages().indexOf(notification) + 1;
+	const notification = await harness.awaitNotification(PUBLISH_DIAGNOSTICS, { after });
+	const params = publishParams(notification);
+	if (params.uri === uri) {
+		return params;
 	}
+	const nextStart = harness.allMessages().indexOf(notification) + 1;
+	return nextDiagnosticsFor(harness, uri, nextStart);
 }
 
-describe("startRecipeServer", () => {
+describe("startRecipeServer initialization", () => {
 	test("responds to initialize with server capabilities", async () => {
 		const h = createLspTestHarness(getNodeRecipeAnalyzer);
 		h.request(REQUEST_INITIALIZE, "initialize", {
@@ -133,7 +133,9 @@ describe("startRecipeServer", () => {
 		const log = await h.awaitNotification(LOG_MESSAGE);
 		expect(logMessageText(log)).toContain("recipe-lsp");
 	});
+});
 
+describe("startRecipeServer document lifecycle", () => {
 	test("publishes empty diagnostics for a valid document on open", async () => {
 		const h = createLspTestHarness(getNodeRecipeAnalyzer);
 		const uri = "file:///valid.recipe";
@@ -188,7 +190,9 @@ describe("startRecipeServer", () => {
 		const after = await nextDiagnosticsFor(h, uri, closeCursor);
 		expect(after.diagnostics).toHaveLength(0);
 	});
+});
 
+describe("startRecipeServer requests", () => {
 	test("answers documentSymbol requests with section symbols", async () => {
 		const h = createLspTestHarness(getNodeRecipeAnalyzer);
 		const uri = "file:///sym.recipe";
@@ -244,7 +248,9 @@ describe("startRecipeServer", () => {
 		const response = await h.awaitResponse(REQUEST_HOVER_MISSING);
 		expect(hoverResult(response)).toBeNull();
 	});
+});
 
+describe("startRecipeServer completion", () => {
 	test("answers completion requests with the static completion list", async () => {
 		const h = createLspTestHarness(getNodeRecipeAnalyzer);
 		h.request(REQUEST_COMPLETION, "textDocument/completion", {
@@ -254,7 +260,9 @@ describe("startRecipeServer", () => {
 		const response = await h.awaitResponse(REQUEST_COMPLETION);
 		expect(completionLabels(response)).toContain("R/");
 	});
+});
 
+describe("startRecipeServer error reporting", () => {
 	test("logs an error when the analyzer factory rejects with an Error", async () => {
 		const failing: () => Promise<RecipeAnalyzer> = () => Promise.reject(new Error("analyzer unavailable"));
 		const h = createLspTestHarness(failing);
