@@ -1,0 +1,57 @@
+{
+	"name": "recipe-lsp",
+	"version": "0.1.0",
+	"description": "Language Server Protocol server for the recipe (.recipe / .rx) pharmacological notation language.",
+	"keywords": [
+		"lsp",
+		"language-server",
+		"recipe",
+		"rx",
+		"pharmacology",
+		"tree-sitter"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/kjanat/recipe-lsp.git"
+	},
+	"license": "MIT",
+	"author": {
+		"name": "Kaj Kowalski",
+		"email": "info@kajkowalski.nl",
+		"url": "https://github.com/kjanat"
+	},
+	"type": "module",
+	"bin": {
+		"recipe-lsp": "server.ts"
+	},
+	"files": [
+		"server.ts",
+		"src/**",
+		"README.md",
+		"LICENSE"
+	],
+	"scripts": {
+		"check": "biome check",
+		"fmt": "dprint fmt",
+		"lint": "biome lint",
+		"start": "bun run server.ts --stdio",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"tree-sitter-recipe": "link:tree-sitter-recipe",
+		"vscode-languageserver": "^9.0.1",
+		"vscode-languageserver-textdocument": "^1.0.12",
+		"web-tree-sitter": "^0.26.8"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.12",
+		"@types/bun": "^1.3.13",
+		"dprint": "^0.54.0",
+		"typescript": "^6.0.3"
+	},
+	"packageManager": "bun@1.3.13",
+	"trustedDependencies": [
+		"tree-sitter-recipe"
+	]
+}
