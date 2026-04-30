@@ -36,7 +36,7 @@ const NEVER_BUNDLE: Array<string | RegExp> = [
 
 const shared = {
 	format: "es",
-	dts: true,
+	dts: false,
 	treeshake: true,
 	target: "esnext",
 	hash: false,
