@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
 import { TextDocument } from "vscode-languageserver-textdocument";
 import {
@@ -9,7 +9,7 @@ import {
 	TextDocumentSyncKind,
 } from "vscode-languageserver/node";
 
-import { analyzeRecipe, completionItems, hoverForPosition, type RecipeAnalysis } from "./src/analysis";
+import { analyzeRecipe, completionItems, hoverForPosition, type RecipeAnalysis } from "./src/analysis.ts";
 
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);

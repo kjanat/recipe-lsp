@@ -21,20 +21,26 @@
 		"url": "https://github.com/kjanat"
 	},
 	"type": "module",
+	"main": "./dist/server.mjs",
+	"types": "./dist/server.d.mts",
 	"bin": {
-		"recipe-lsp": "server.ts"
+		"recipe-lsp": "dist/server.mjs"
 	},
 	"files": [
-		"server.ts",
-		"src/**",
+		"dist/**",
 		"README.md",
 		"LICENSE"
 	],
 	"scripts": {
-		"check": "biome check",
+		"bd": "bun run build",
+		"build": "tsdown",
+		"check": "biome check server.ts src package.json tsconfig.json tsdown.config.ts",
+		"dev": "bun run server.ts --stdio",
 		"fmt": "dprint fmt",
 		"lint": "biome lint",
-		"start": "bun run server.ts --stdio",
+		"prepack": "bun run build",
+		"prestart": "bun run build",
+		"start": "node ./dist/server.mjs --stdio",
 		"test": "bun test",
 		"typecheck": "tsc --noEmit"
 	},
@@ -45,9 +51,10 @@
 		"web-tree-sitter": "^0.26.8"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.4.12",
+		"@biomejs/biome": "^2.4.13",
 		"@types/bun": "^1.3.13",
 		"dprint": "^0.54.0",
+		"tsdown": "^0.21.10",
 		"typescript": "^6.0.3"
 	},
 	"packageManager": "bun@1.3.13",

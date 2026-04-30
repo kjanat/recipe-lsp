@@ -310,7 +310,7 @@ S/ \${0:directions}`,
 	),
 ];
 
-const VOCAB_COMPLETIONS = [
+const VOCAB_COMPLETIONS: CompletionItem[] = [
 	...createGroupCompletions(
 		FREQUENCY,
 		"Frequency abbreviation",

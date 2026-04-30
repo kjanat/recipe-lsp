@@ -14,7 +14,7 @@ import {
 } from "vscode-languageserver/node";
 import { Language, type Node, Parser, type Point, type Tree } from "web-tree-sitter";
 
-import { completionItems as vocabularyCompletionItems, hoverInfoForNode } from "./vocabulary";
+import { completionItems as vocabularyCompletionItems, hoverInfoForNode } from "./vocabulary.ts";
 
 export type RecipeAnalysis = {
 	text: string;
@@ -36,7 +36,7 @@ const recipeWasmPath = join(recipeRoot, "tree-sitter-recipe.wasm");
 
 async function createParser(): Promise<Parser> {
 	await Parser.init({
-		locateFile(scriptName: string) {
+		locateFile(scriptName: string): string {
 			if (
 				scriptName === "tree-sitter.wasm"
 				|| scriptName === "web-tree-sitter.wasm"
@@ -54,7 +54,7 @@ async function createParser(): Promise<Parser> {
 	return parser;
 }
 
-const parser = await createParser();
+const parser: Parser = await createParser();
 
 function splitLines(text: string): string[] {
 	return text.split(/\r?\n/u);

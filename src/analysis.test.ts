@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { analyzeRecipe, completionItems, hoverForPosition } from "./analysis";
+import { analyzeRecipe, completionItems, hoverForPosition } from "./analysis.ts";
 
 describe("analyzeRecipe", () => {
 	test("returns section symbols for a valid recipe", () => {

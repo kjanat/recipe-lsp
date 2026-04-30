@@ -25,9 +25,11 @@ diagnostics, hover text, symbols, and completions on top.
 
 ```bash
 bun install
+bun run build
 bun run typecheck
 bun test
-bun run server.ts --stdio
+bun run dev
+node ./dist/server.mjs --stdio
 ```
 
 ## ANTI-PATTERNS
@@ -35,3 +37,4 @@ bun run server.ts --stdio
 - Do not add regex-only parsing for syntax already owned by tree-sitter.
 - Do not map tree-sitter byte columns directly to LSP character offsets.
 - Do not add completion vocab here that is absent upstream.
+- Do not reintroduce Bun-only runtime assumptions; shipping target is Node.

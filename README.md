@@ -1,6 +1,6 @@
 # recipe-lsp
 
-`recipe-lsp` is a Bun-first Language Server Protocol server for the Recipe
+`recipe-lsp` is a Node-compatible Language Server Protocol server for the Recipe
 pharmacological notation language.
 
 ## Features
@@ -13,15 +13,33 @@ pharmacological notation language.
 
 ## Local dev
 
+In this monorepo, local parser linking still uses Bun because
+`tree-sitter-recipe` is a sibling package:
+
 ```bash
 cd ../tree-sitter-recipe && bun link
 cd ../recipe-lsp && bun install
 ```
 
-Start the server over stdio:
+Build once, then run with Node:
 
 ```bash
-bun run server.ts --stdio
+bun bd
+node ./dist/server.mjs --stdio
+```
+
+`bun start` also builds first via `prestart`.
+
+For local dev without a build step, use Bun:
+
+```bash
+bun dev
+```
+
+Run tests with Bun too:
+
+```bash
+bun test
 ```
 
 ## Notes
