@@ -3,6 +3,7 @@ import { copyFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import type { DepsConfig, UserConfig } from "tsdown";
 import { defineConfig } from "tsdown";
 
 const runtimeWasmPath = fileURLToPath(
@@ -27,24 +28,23 @@ function copyWasmArtifacts(): void {
 	}
 }
 
-const NEVER_BUNDLE: Array<string | RegExp> = [
+const neverBundle: DepsConfig["neverBundle"] = [
 	"tree-sitter-recipe",
 	"vscode-languageserver-textdocument",
 	"web-tree-sitter",
 	/^vscode-languageserver/u,
 ];
 
-const shared = {
+const shared: UserConfig = {
 	format: "es",
 	dts: false,
 	treeshake: true,
 	target: "esnext",
 	hash: false,
 	sourcemap: false,
-	minify: false,
-	deps: {
-		neverBundle: NEVER_BUNDLE,
-	},
+	minify: "dce-only",
+	clean: true,
+	deps: { neverBundle },
 	hooks: {
 		"build:done": () => {
 			copyWasmArtifacts();
@@ -55,15 +55,11 @@ const shared = {
 const config = defineConfig([
 	{
 		entry: "./server.ts",
-		outDir: "./dist",
-		clean: true,
 		platform: "node",
 		...shared,
 	},
 	{
 		entry: "./browser.ts",
-		outDir: "./dist",
-		clean: false,
 		platform: "browser",
 		...shared,
 	},
