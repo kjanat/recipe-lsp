@@ -1,7 +1,10 @@
 # recipe-lsp
 
-`recipe-lsp` is a Node-compatible Language Server Protocol server for the Recipe
-pharmacological notation language.
+`recipe-lsp` is a Language Server Protocol implementation for the Recipe
+pharmacological notation language with two entrypoints:
+
+- Node stdio server: `recipe-lsp`
+- Browser worker server: `recipe-lsp/browser`
 
 ## Features
 
@@ -30,6 +33,23 @@ node ./dist/server.mjs --stdio
 
 `bun start` also builds first via `prestart`.
 
+## Browser worker
+
+The browser entrypoint is emitted as `dist/browser.js`.
+It expects these sibling assets at runtime:
+
+- `dist/tree-sitter.wasm`
+- `dist/tree-sitter-recipe.wasm`
+
+The build copies both files into `dist/`, so a worker can be served directly
+from there or rebundled by an app:
+
+```ts
+new Worker(new URL("recipe-lsp/dist/browser.js", import.meta.url), {
+	type: "module",
+});
+```
+
 For local dev without a build step, use Bun:
 
 ```bash
@@ -48,3 +68,5 @@ bun test
   Recipe files are tiny; simple wins.
 - Tree-sitter reports positions in UTF-8 bytes. `recipe-lsp` converts them to
   LSP UTF-16 positions so diagnostics and hovers stay correct on accented text.
+- Shared analysis code is browser-safe; only `server.ts` and
+  `src/node-analyzer.ts` are Node-specific.

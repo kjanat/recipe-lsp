@@ -8,18 +8,26 @@ diagnostics, hover text, symbols, and completions on top.
 
 ## WHERE TO LOOK
 
-| Task                   | Location               | Notes                                                    |
-| ---------------------- | ---------------------- | -------------------------------------------------------- |
-| LSP wiring             | `server.ts`            | Capabilities, document lifecycle, stdio transport        |
-| Parsing + diagnostics  | `src/analysis.ts`      | Tree-sitter parse, syntax errors, section-order warnings |
-| Hover/completion vocab | `src/vocabulary.ts`    | Marker, abbreviation, and unit metadata                  |
-| Behavior tests         | `src/analysis.test.ts` | Unicode offsets, diagnostics, symbols, hover             |
+| Task                   | Location                  | Notes                                                  |
+| ---------------------- | ------------------------- | ------------------------------------------------------ |
+| Node LSP entry         | `server.ts`               | stdio transport                                        |
+| Browser LSP entry      | `browser.ts`              | worker transport                                       |
+| Shared LSP wiring      | `src/server-common.ts`    | document lifecycle and request handlers                |
+| Parsing orchestration  | `src/analysis.ts`         | parser-backed analysis facade                          |
+| Node parser runtime    | `src/node-analyzer.ts`    | loads wasm from installed dependencies                 |
+| Browser parser runtime | `src/browser-analyzer.ts` | loads wasm from sibling worker assets                  |
+| Diagnostics + symbols  | `src/diagnostics.ts`      | syntax errors, section-order warnings, outline symbols |
+| UTF-8/LSP coords       | `src/coords.ts`           | tree-sitter byte offsets -> LSP UTF-16                 |
+| Hover/completion vocab | `src/vocabulary-*.ts`     | marker, abbreviation, and unit metadata                |
+| Behavior tests         | `src/analysis.test.ts`    | Unicode offsets, diagnostics, symbols, hover           |
 
 ## SOURCE OF TRUTH
 
 - Grammar semantics live in `tree-sitter-recipe`.
 - This package must not invent parallel abbreviation or unit lists.
 - Tree-sitter byte positions must always be converted before sending LSP ranges.
+- Browser worker build depends on `dist/tree-sitter.wasm` and
+  `dist/tree-sitter-recipe.wasm` living next to `dist/browser.js`.
 
 ## COMMANDS
 
@@ -30,6 +38,7 @@ bun run typecheck
 bun test
 bun run dev
 node ./dist/server.mjs --stdio
+dist/browser.js via Worker
 ```
 
 ## ANTI-PATTERNS
@@ -38,3 +47,4 @@ node ./dist/server.mjs --stdio
 - Do not map tree-sitter byte columns directly to LSP character offsets.
 - Do not add completion vocab here that is absent upstream.
 - Do not reintroduce Bun-only runtime assumptions; shipping target is Node.
+- Do not import `vscode-languageserver/node` anywhere shared with the browser build.

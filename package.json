@@ -21,6 +21,17 @@
 		"url": "https://github.com/kjanat"
 	},
 	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/server.d.mts",
+			"default": "./dist/server.mjs"
+		},
+		"./browser": {
+			"types": "./dist/browser.d.ts",
+			"default": "./dist/browser.js"
+		},
+		"./package.json": "./package.json"
+	},
 	"main": "./dist/server.mjs",
 	"types": "./dist/server.d.mts",
 	"bin": {
@@ -34,7 +45,7 @@
 	"scripts": {
 		"bd": "bun run build",
 		"build": "tsdown",
-		"check": "biome check server.ts src package.json tsconfig.json tsdown.config.ts",
+		"check": "biome check browser.ts server.ts src package.json tsconfig.json tsdown.config.ts",
 		"dev": "bun run server.ts --stdio",
 		"fmt": "dprint fmt",
 		"lint": "biome lint",

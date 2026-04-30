@@ -1,10 +1,13 @@
 import { describe, expect, test } from "bun:test";
 
-import { analyzeRecipe, completionItems, hoverForPosition } from "./analysis.ts";
+import type { RecipeAnalyzer } from "./analysis.ts";
+import { getNodeRecipeAnalyzer } from "./node-analyzer.ts";
+
+const analyzer: RecipeAnalyzer = await getNodeRecipeAnalyzer();
 
 describe("analyzeRecipe", () => {
 	test("returns section symbols for a valid recipe", () => {
-		const analysis = analyzeRecipe(
+		const analysis = analyzer.analyzeRecipe(
 			"R/ claritromycin 500mg\nDa/ 14 tablets\nS/ 1 tablet b.d.d.",
 		);
 
@@ -17,7 +20,7 @@ describe("analyzeRecipe", () => {
 	});
 
 	test("reports stray syntax", () => {
-		const analysis = analyzeRecipe("R/ claritromycin ???");
+		const analysis = analyzer.analyzeRecipe("R/ claritromycin ???");
 
 		expect(
 			analysis.diagnostics.some((diagnostic) => diagnostic.message.startsWith("Unexpected syntax")),
@@ -25,7 +28,7 @@ describe("analyzeRecipe", () => {
 	});
 
 	test("warns on section order issues", () => {
-		const analysis = analyzeRecipe("S/ take 1 tablet\nR/ amoxicilline 500mg");
+		const analysis = analyzer.analyzeRecipe("S/ take 1 tablet\nR/ amoxicilline 500mg");
 
 		expect(
 			analysis.diagnostics.some(
@@ -37,8 +40,8 @@ describe("analyzeRecipe", () => {
 
 describe("hoverForPosition", () => {
 	test("maps UTF-16 positions onto tree-sitter UTF-8 columns", () => {
-		const analysis = analyzeRecipe("S/ vóór p.o.");
-		const hover = hoverForPosition(analysis, { line: 0, character: 8 });
+		const analysis = analyzer.analyzeRecipe("S/ vóór p.o.");
+		const hover = analyzer.hoverForPosition(analysis, { line: 0, character: 8 });
 
 		if (
 			!hover
@@ -57,7 +60,7 @@ describe("hoverForPosition", () => {
 
 describe("completionItems", () => {
 	test("contains markers, abbreviations, and units", () => {
-		const labels = completionItems().map((item) => item.label);
+		const labels = analyzer.completionItems().map((item) => item.label);
 
 		expect(labels).toContain("R/");
 		expect(labels).toContain("Da/");
