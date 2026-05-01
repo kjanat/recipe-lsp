@@ -26,8 +26,9 @@ diagnostics, hover text, symbols, and completions on top.
 - Grammar semantics live in `tree-sitter-recipe`.
 - This package must not invent parallel abbreviation or unit lists.
 - Tree-sitter byte positions must always be converted before sending LSP ranges.
-- Browser worker build depends on `dist/tree-sitter.wasm` and
-  `dist/tree-sitter-recipe.wasm` living next to `dist/browser.js`.
+- Browser worker build depends on emitted wasm assets living next to
+  `dist/browser.js`, currently `dist/web-tree-sitter.wasm` and
+  `dist/tree-sitter-recipe.wasm`.
 
 ## COMMANDS
 

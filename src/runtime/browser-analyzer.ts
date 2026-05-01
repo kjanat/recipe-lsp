@@ -1,9 +1,10 @@
+import recipeWasmUrl from "tree-sitter-recipe/tree-sitter-recipe.wasm?url";
 import { Language, Parser } from "web-tree-sitter";
+import runtimeWasmUrl from "web-tree-sitter/web-tree-sitter.wasm?url";
 
 import { createRecipeAnalyzer, type RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
 
-const runtimeWasmUrl = new URL("../../dist/tree-sitter.wasm", import.meta.url).toString();
-const recipeWasmAsset = new URL("../../dist/tree-sitter-recipe.wasm", import.meta.url);
+const recipeWasmAsset = new URL(recipeWasmUrl, import.meta.url);
 
 type BrowserLanguage = Awaited<ReturnType<typeof Language.load>>;
 const isNodeRuntime = recipeWasmAsset.protocol === "file:";

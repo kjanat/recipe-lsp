@@ -16,7 +16,7 @@ function resolveRecipeWasmUrl(): Promise<URL> {
 
 async function createNodeRecipeAnalyzer(): Promise<RecipeAnalyzer> {
 	const runtimeWasmPath = resolveRuntimeWasmPath();
-	const recipeWasmUrl = await resolveRecipeWasmUrl();
+	const recipeWasmLocation = await resolveRecipeWasmUrl();
 
 	await Parser.init({
 		locateFile(scriptName: string): string {
@@ -32,7 +32,7 @@ async function createNodeRecipeAnalyzer(): Promise<RecipeAnalyzer> {
 	});
 
 	const parser = new Parser();
-	const language = await Language.load(new Uint8Array(await readFile(recipeWasmUrl)));
+	const language = await Language.load(new Uint8Array(await readFile(recipeWasmLocation)));
 	parser.setLanguage(language);
 	return createRecipeAnalyzer(parser);
 }

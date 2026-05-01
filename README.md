@@ -55,13 +55,12 @@ instead of a raw stack trace.
 ## Browser worker
 
 The browser entrypoint is emitted as `dist/browser.js`.
-It expects these sibling assets at runtime:
+tsdown emits the wasm assets it imports as sibling files at runtime:
 
-- `dist/tree-sitter.wasm`
+- `dist/web-tree-sitter.wasm`
 - `dist/tree-sitter-recipe.wasm`
 
-The build copies both files into `dist/`, so a worker can be served directly
-from there or rebundled by an app:
+The worker can be served directly from `dist/` or rebundled by an app:
 
 ```ts
 new Worker(new URL("recipe-lsp/dist/browser.js", import.meta.url), {

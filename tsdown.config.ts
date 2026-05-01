@@ -1,35 +1,17 @@
-// biome-ignore-all lint/correctness/noNodejsModules: tsdown ...
-import { copyFileSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-
+import { wasm } from "rolldown-plugin-wasm";
 import type { DepsConfig, UserConfig } from "tsdown";
 import { defineConfig } from "tsdown";
-
-const runtimeWasmPath = fileURLToPath(
-	import.meta.resolve("web-tree-sitter/web-tree-sitter.wasm"),
-);
-const recipeWasmPath = fileURLToPath(
-	import.meta.resolve("tree-sitter-recipe/tree-sitter-recipe.wasm"),
-);
-
-function copyWasmArtifacts(): void {
-	const targets = [
-		{ from: runtimeWasmPath, to: "./dist/tree-sitter.wasm" },
-		{ from: recipeWasmPath, to: "./dist/tree-sitter-recipe.wasm" },
-	] as const;
-
-	for (const target of targets) {
-		mkdirSync(dirname(target.to), { recursive: true });
-		copyFileSync(target.from, target.to);
-	}
-}
 
 const neverBundle: DepsConfig["neverBundle"] = [
 	"tree-sitter-recipe",
 	"vscode-languageserver-textdocument",
 	"web-tree-sitter",
 	/^vscode-languageserver/u,
+];
+
+const browserAlwaysBundle: DepsConfig["alwaysBundle"] = [
+	"tree-sitter-recipe/tree-sitter-recipe.wasm?url",
+	"web-tree-sitter/web-tree-sitter.wasm?url",
 ];
 
 const shared: UserConfig = {
@@ -41,12 +23,8 @@ const shared: UserConfig = {
 	sourcemap: false,
 	minify: "dce-only",
 	clean: true,
+	plugins: [wasm({ fileName: "[name][extname]", maxFileSize: 0 })],
 	deps: { neverBundle },
-	hooks: {
-		"build:done": () => {
-			copyWasmArtifacts();
-		},
-	},
 } as const;
 
 const config = defineConfig([
@@ -59,6 +37,7 @@ const config = defineConfig([
 		entry: "./browser.ts",
 		platform: "browser",
 		...shared,
+		deps: { neverBundle, alwaysBundle: browserAlwaysBundle },
 	},
 ]);
 

@@ -17,7 +17,7 @@
 		"resolveJsonModule": true,
 		"isolatedModules": true,
 		"verbatimModuleSyntax": true,
-		"types": ["bun", "node"]
+		"types": ["bun", "node", "rolldown-plugin-wasm/types"]
 	},
 	"include": ["browser.ts", "server.ts", "src/**/*.ts", "tests/**/*.ts"]
 }
