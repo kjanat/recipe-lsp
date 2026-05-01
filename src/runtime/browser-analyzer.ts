@@ -6,7 +6,7 @@ const runtimeWasmUrl = new URL("../../dist/tree-sitter.wasm", import.meta.url).t
 const recipeWasmAsset = new URL("../../dist/tree-sitter-recipe.wasm", import.meta.url);
 
 type BrowserLanguage = Awaited<ReturnType<typeof Language.load>>;
-const isNodeRuntime = typeof process !== "undefined" && typeof process.versions?.node === "string";
+const isNodeRuntime = recipeWasmAsset.protocol === "file:";
 
 interface BrowserAnalyzerBootstrap<LanguageType, AnalyzerType> {
 	initRuntime: (locateFile: (scriptName: string) => string) => Promise<void>;
@@ -24,7 +24,14 @@ const browserAnalyzerBootstrap: BrowserAnalyzerBootstrap<BrowserLanguage, Recipe
 	},
 };
 
-export async function createBrowserRecipeAnalyzerWith<LanguageType, AnalyzerType>(
+function recipeWasmLocation(): string {
+	if (isNodeRuntime) {
+		return recipeWasmAsset.pathname;
+	}
+	return recipeWasmAsset.toString();
+}
+
+async function createBrowserRecipeAnalyzerWith<LanguageType, AnalyzerType>(
 	bootstrap: BrowserAnalyzerBootstrap<LanguageType, AnalyzerType>,
 ): Promise<AnalyzerType> {
 	await bootstrap.initRuntime((scriptName: string): string => {
@@ -38,19 +45,19 @@ export async function createBrowserRecipeAnalyzerWith<LanguageType, AnalyzerType
 		return scriptName;
 	});
 
-	const language = await bootstrap.loadLanguage(
-		isNodeRuntime ? recipeWasmAsset.pathname : recipeWasmAsset.toString(),
-	);
+	const language = await bootstrap.loadLanguage(recipeWasmLocation());
 	return bootstrap.createAnalyzer(language);
 }
 
-async function createBrowserRecipeAnalyzer(): Promise<RecipeAnalyzer> {
+function createBrowserRecipeAnalyzer(): Promise<RecipeAnalyzer> {
 	return createBrowserRecipeAnalyzerWith(browserAnalyzerBootstrap);
 }
 
 let analyzerPromise: Promise<RecipeAnalyzer> | undefined;
 
-export function getBrowserRecipeAnalyzer(): Promise<RecipeAnalyzer> {
+function getBrowserRecipeAnalyzer(): Promise<RecipeAnalyzer> {
 	analyzerPromise ??= createBrowserRecipeAnalyzer();
 	return analyzerPromise;
 }
+
+export { createBrowserRecipeAnalyzerWith, getBrowserRecipeAnalyzer };

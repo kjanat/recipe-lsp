@@ -1,9 +1,8 @@
+import type { RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
+import { createLspTestHarness, type LspTestHarness } from "#testsupport/lsp-harness.ts";
 import { describe, expect, mock, test } from "bun:test";
 import type { NotificationMessage, ResponseMessage } from "vscode-jsonrpc";
 import type { DocumentSymbol, Hover, InitializeResult, PublishDiagnosticsParams } from "vscode-languageserver";
-
-import type { RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
-import { createLspTestHarness, type LspTestHarness } from "#testsupport/lsp-harness.ts";
 
 mock.restore();
 

@@ -28,6 +28,19 @@
 		}
 	},
 	"javascript": {},
+	"overrides": [
+		{
+			"includes": ["server.ts", "src/server/node-cli.ts", "src/runtime/node-analyzer.ts"],
+			"linter": {
+				"rules": {
+					"correctness": {
+						"noNodejsModules": "off",
+						"noProcessGlobal": "off"
+					}
+				}
+			}
+		}
+	],
 	"assist": {
 		"enabled": true,
 		"actions": {

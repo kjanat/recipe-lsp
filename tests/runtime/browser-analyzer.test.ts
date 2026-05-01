@@ -5,7 +5,7 @@ const stubLanguageLoads: unknown[] = [];
 
 const stubLanguagesSeenByAnalyzer: unknown[] = [];
 
-async function loadBrowserAnalyzerModule(): Promise<typeof import("#runtime/browser-analyzer.ts")> {
+function loadBrowserAnalyzerModule(): Promise<typeof import("#runtime/browser-analyzer.ts")> {
 	return import("#runtime/browser-analyzer.ts");
 }
 
@@ -14,14 +14,15 @@ describe("browser analyzer factory", () => {
 		const { createBrowserRecipeAnalyzerWith } = await loadBrowserAnalyzerModule();
 
 		const analyzer = await createBrowserRecipeAnalyzerWith({
-			initRuntime: async (locateFile: (scriptName: string) => string): Promise<void> => {
+			initRuntime: (locateFile: (scriptName: string) => string): Promise<void> => {
 				stubLocateFiles.push(locateFile("tree-sitter.wasm"));
 				stubLocateFiles.push(locateFile("web-tree-sitter.wasm"));
 				stubLocateFiles.push(locateFile("other.wasm"));
+				return Promise.resolve();
 			},
-			loadLanguage: async (input: string): Promise<{ stub: true }> => {
+			loadLanguage: (input: string): Promise<{ stub: true }> => {
 				stubLanguageLoads.push(input);
-				return { stub: true };
+				return Promise.resolve({ stub: true });
 			},
 			createAnalyzer: (language: { stub: true }) => {
 				stubLanguagesSeenByAnalyzer.push(language);

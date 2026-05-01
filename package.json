@@ -53,7 +53,7 @@
 	"scripts": {
 		"bd": "bun run build",
 		"build": "tsdown",
-		"check": "biome check browser.ts server.ts src package.json tsconfig.json tsdown.config.ts",
+		"check": "biome check",
 		"dev": "bun run server.ts --stdio",
 		"fmt": "dprint fmt",
 		"lint": "biome lint",

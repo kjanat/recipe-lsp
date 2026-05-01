@@ -1,40 +1,21 @@
-// biome-ignore-all lint/correctness/noNodejsModules: node ...
-import { access, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
+// biome-ignore lint/correctness/noUnresolvedImports: Biome misreads `web-tree-sitter` exports here; ts/bun/runtime agree.
 import { Language, Parser } from "web-tree-sitter";
 
 import { createRecipeAnalyzer, type RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
 
-async function resolveInstalledUrl(candidates: readonly string[]): Promise<URL> {
-	for (const candidate of candidates) {
-		const url = new URL(candidate, import.meta.url);
-		try {
-			await access(url);
-			return url;
-		} catch {}
-	}
-
-	throw new Error(`Could not resolve installed asset from: ${candidates.join(", ")}`);
+function resolveRuntimeWasmPath(): string {
+	return fileURLToPath(import.meta.resolve("web-tree-sitter/web-tree-sitter.wasm"));
 }
 
-async function resolveRuntimeWasmPath(): Promise<string> {
-	const url = await resolveInstalledUrl([
-		"../../node_modules/web-tree-sitter/web-tree-sitter.wasm",
-		"../node_modules/web-tree-sitter/web-tree-sitter.wasm",
-	]);
-	return fileURLToPath(url);
-}
-
-async function resolveRecipeWasmUrl(): Promise<URL> {
-	return resolveInstalledUrl([
-		"../../node_modules/tree-sitter-recipe/tree-sitter-recipe.wasm",
-		"../node_modules/tree-sitter-recipe/tree-sitter-recipe.wasm",
-	]);
+function resolveRecipeWasmUrl(): Promise<URL> {
+	return Promise.resolve(new URL("../tree-sitter-recipe.wasm", import.meta.resolve("tree-sitter-recipe")));
 }
 
 async function createNodeRecipeAnalyzer(): Promise<RecipeAnalyzer> {
-	const runtimeWasmPath = await resolveRuntimeWasmPath();
+	const runtimeWasmPath = resolveRuntimeWasmPath();
 	const recipeWasmUrl = await resolveRecipeWasmUrl();
 
 	await Parser.init({

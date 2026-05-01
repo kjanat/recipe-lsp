@@ -1,17 +1,26 @@
-type CliExit = {
+import process from "node:process";
+
+interface CliExit {
 	kind: "exit";
 	code: 0 | 1;
 	message: string;
 	stream: "stdout" | "stderr";
-};
+}
 
-type CliStart = {
+interface CliStart {
 	kind: "start";
-};
-
-export type NodeCliResult = CliExit | CliStart;
+}
 
 const HELP_FLAGS = new Set(["--help", "-h"]);
+const PORT_PATTERN = /^\d+$/u;
+const SOCKET_PREFIX = "--socket=";
+const MAX_PORT = 65_535;
+
+interface ParsedArgs {
+	transportCount: number;
+	unknownArgs: string[];
+	badPort: string | null;
+}
 
 function usageText(): string {
 	return [
@@ -38,86 +47,80 @@ function errorText(message: string): string {
 	return `${usageText()}\n\nError: ${message}`;
 }
 
+function exitWith(message: string, code: 0 | 1, stream: "stdout" | "stderr"): CliExit {
+	return { kind: "exit", code, message, stream };
+}
+
 function isSocketArg(arg: string): boolean {
-	return arg.startsWith("--socket=");
+	return arg.startsWith(SOCKET_PREFIX);
 }
 
 function isValidPort(value: string): boolean {
-	if (!/^\d+$/.test(value)) {
+	if (!PORT_PATTERN.test(value)) {
 		return false;
 	}
 	const port = Number(value);
-	return Number.isSafeInteger(port) && port > 0 && port <= 65_535;
+	return Number.isSafeInteger(port) && port > 0 && port <= MAX_PORT;
 }
 
-export function evaluateNodeCliArgs(args: readonly string[]): NodeCliResult {
-	for (const arg of args) {
-		if (HELP_FLAGS.has(arg)) {
-			return {
-				kind: "exit",
-				code: 0,
-				message: usageText(),
-				stream: "stdout",
-			};
-		}
-	}
-
-	const unknownArgs: string[] = [];
-	let transportCount = 0;
+function parseArgs(args: readonly string[]): ParsedArgs {
+	const parsed: ParsedArgs = {
+		transportCount: 0,
+		unknownArgs: [],
+		badPort: null,
+	};
 
 	for (const arg of args) {
 		if (arg === "--stdio" || arg === "--node-ipc") {
-			transportCount += 1;
-			continue;
-		}
-		if (isSocketArg(arg)) {
-			transportCount += 1;
-			const value = arg.slice("--socket=".length);
+			parsed.transportCount += 1;
+		} else if (isSocketArg(arg)) {
+			parsed.transportCount += 1;
+			const value = arg.slice(SOCKET_PREFIX.length);
 			if (!isValidPort(value)) {
-				return {
-					kind: "exit",
-					code: 1,
-					message: errorText(`Bad socket port: ${value || "<empty>"}. Use 1-65535.`),
-					stream: "stderr",
-				};
+				parsed.badPort = value || "<empty>";
 			}
-			continue;
+		} else {
+			parsed.unknownArgs.push(arg);
 		}
-		unknownArgs.push(arg);
 	}
 
-	if (unknownArgs.length > 0) {
-		const rendered = unknownArgs.map((arg) => `\`${arg}\``).join(", ");
-		return {
-			kind: "exit",
-			code: 1,
-			message: errorText(`Unknown argument${unknownArgs.length === 1 ? "" : "s"}: ${rendered}.`),
-			stream: "stderr",
-		};
+	return parsed;
+}
+
+function unknownArgumentMessage(unknownArgs: readonly string[]): string {
+	const rendered = unknownArgs.map((arg) => `\`${arg}\``).join(", ");
+	if (unknownArgs.length === 1) {
+		return `Unknown argument: ${rendered}.`;
+	}
+	return `Unknown arguments: ${rendered}.`;
+}
+
+function evaluateNodeCliArgs(args: readonly string[]): NodeCliResult {
+	if (args.some((arg) => HELP_FLAGS.has(arg))) {
+		return exitWith(usageText(), 0, "stdout");
 	}
 
-	if (transportCount === 0) {
-		return {
-			kind: "exit",
-			code: 1,
-			message: errorText("Missing transport flag."),
-			stream: "stderr",
-		};
+	const parsed = parseArgs(args);
+	if (parsed.badPort !== null) {
+		return exitWith(errorText(`Bad socket port: ${parsed.badPort}. Use 1-65535.`), 1, "stderr");
 	}
 
-	if (transportCount > 1) {
-		return {
-			kind: "exit",
-			code: 1,
-			message: errorText("Choose exactly one transport flag."),
-			stream: "stderr",
-		};
+	if (parsed.unknownArgs.length > 0) {
+		return exitWith(errorText(unknownArgumentMessage(parsed.unknownArgs)), 1, "stderr");
+	}
+
+	if (parsed.transportCount === 0) {
+		return exitWith(errorText("Missing transport flag."), 1, "stderr");
+	}
+
+	if (parsed.transportCount > 1) {
+		return exitWith(errorText("Choose exactly one transport flag."), 1, "stderr");
 	}
 
 	return { kind: "start" };
 }
 
-export function writeNodeCliMessage(result: CliExit): void {
+function writeNodeCliMessage(result: CliExit): void {
 	const output = `${result.message}\n`;
 	if (result.stream === "stdout") {
 		process.stdout.write(output);
@@ -125,3 +128,8 @@ export function writeNodeCliMessage(result: CliExit): void {
 	}
 	process.stderr.write(output);
 }
+
+type NodeCliResult = CliExit | CliStart;
+
+export { evaluateNodeCliArgs, writeNodeCliMessage };
+export type { NodeCliResult };
