@@ -33,6 +33,25 @@ node ./dist/server.mjs --stdio
 
 `bun start` also builds first via `prestart`.
 
+## CLI usage
+
+The Node server needs exactly one transport flag:
+
+```bash
+recipe-lsp --stdio
+recipe-lsp --node-ipc
+recipe-lsp --socket=3000
+```
+
+For help:
+
+```bash
+recipe-lsp --help
+```
+
+If you run `recipe-lsp` without a transport flag, it prints a short usage guide
+instead of a raw stack trace.
+
 ## Browser worker
 
 The browser entrypoint is emitted as `dist/browser.js`.

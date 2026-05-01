@@ -1,6 +1,5 @@
 /// <reference lib="WebWorker" />
-
-import { BrowserMessageReader, BrowserMessageWriter, createConnection } from "vscode-languageserver/browser";
+import { BrowserMessageReader, BrowserMessageWriter, createConnection } from "vscode-languageserver/browser.js";
 
 import { getBrowserRecipeAnalyzer } from "./src/browser-analyzer.ts";
 import { startRecipeServer } from "./src/server-common.ts";
