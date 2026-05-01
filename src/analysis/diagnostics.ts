@@ -7,7 +7,7 @@ import {
 } from "vscode-languageserver";
 import type { Node } from "web-tree-sitter";
 
-import { firstLineOf, toRange } from "./coords.ts";
+import { firstLineOf, toRange } from "./lsp-positions.ts";
 
 const SECTION_TYPES = new Set(["rx_section", "dispense_section", "signa_section"]);
 

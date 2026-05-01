@@ -21,6 +21,14 @@
 		"url": "https://github.com/kjanat"
 	},
 	"type": "module",
+	"imports": {
+		"#src/*": "./src/*",
+		"#anal/*": "./src/analysis/*",
+		"#runtime/*": "./src/runtime/*",
+		"#server/*": "./src/server/*",
+		"#vocab/*": "./src/vocabulary/*",
+		"#testsupport/*": "./tests/support/*"
+	},
 	"exports": {
 		".": {
 			"types": "./dist/server.d.mts",

@@ -1,7 +1,7 @@
 import { type Connection, type InitializeResult, TextDocuments, TextDocumentSyncKind } from "vscode-languageserver";
 import { TextDocument } from "vscode-languageserver-textdocument";
 
-import type { RecipeAnalysis, RecipeAnalyzer } from "./analysis.ts";
+import type { RecipeAnalysis, RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
 
 interface ServerState {
 	connection: Connection;

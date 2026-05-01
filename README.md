@@ -88,4 +88,4 @@ bun test
 - Tree-sitter reports positions in UTF-8 bytes. `recipe-lsp` converts them to
   LSP UTF-16 positions so diagnostics and hovers stay correct on accented text.
 - Shared analysis code is browser-safe; only `server.ts` and
-  `src/node-analyzer.ts` are Node-specific.
+  `src/runtime/node-analyzer.ts` are Node-specific.

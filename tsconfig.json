@@ -19,5 +19,5 @@
 		"verbatimModuleSyntax": true,
 		"types": ["bun", "node"]
 	},
-	"include": ["browser.ts", "server.ts", "src/**/*.ts"]
+	"include": ["browser.ts", "server.ts", "src/**/*.ts", "tests/**/*.ts"]
 }

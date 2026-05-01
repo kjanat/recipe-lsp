@@ -1,8 +1,12 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { DiagnosticSeverity } from "vscode-languageserver";
 
-import type { RecipeAnalyzer } from "./analysis.ts";
-import { getNodeRecipeAnalyzer } from "./node-analyzer.ts";
+import type { RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
+
+mock.restore();
+
+const nodeAnalyzerModule: typeof import("#runtime/node-analyzer.ts") = await import("#runtime/node-analyzer.ts");
+const getNodeRecipeAnalyzer: typeof nodeAnalyzerModule.getNodeRecipeAnalyzer = nodeAnalyzerModule.getNodeRecipeAnalyzer;
 
 const analyzer: RecipeAnalyzer = await getNodeRecipeAnalyzer();
 

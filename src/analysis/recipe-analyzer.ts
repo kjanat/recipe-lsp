@@ -8,10 +8,10 @@ import {
 } from "vscode-languageserver";
 import type { Node, Parser, Tree } from "web-tree-sitter";
 
-import { splitLines, toPoint, toRange } from "./coords.ts";
+import { completionItems as vocabularyCompletionItems } from "#vocab/completions.ts";
+import { hoverInfoForNode } from "#vocab/hover.ts";
 import { buildSymbols, collectSectionDiagnostics, collectSyntaxDiagnostics } from "./diagnostics.ts";
-import { completionItems as vocabularyCompletionItems } from "./vocabulary-completions.ts";
-import { hoverInfoForNode } from "./vocabulary-hover.ts";
+import { splitLines, toPoint, toRange } from "./lsp-positions.ts";
 
 function analyzeWithParser(parser: Parser, text: string): RecipeAnalysis {
 	const tree = parser.parse(text);

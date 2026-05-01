@@ -1,8 +1,8 @@
 /// <reference lib="WebWorker" />
 import { BrowserMessageReader, BrowserMessageWriter, createConnection } from "vscode-languageserver/browser.js";
 
-import { getBrowserRecipeAnalyzer } from "./src/browser-analyzer.ts";
-import { startRecipeServer } from "./src/server-common.ts";
+import { getBrowserRecipeAnalyzer } from "./src/runtime/browser-analyzer.ts";
+import { startRecipeServer } from "./src/server/lsp-server.ts";
 
 declare const self: DedicatedWorkerGlobalScope;
 

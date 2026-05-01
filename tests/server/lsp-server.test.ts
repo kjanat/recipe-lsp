@@ -1,10 +1,16 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import type { NotificationMessage, ResponseMessage } from "vscode-jsonrpc";
 import type { DocumentSymbol, Hover, InitializeResult, PublishDiagnosticsParams } from "vscode-languageserver";
 
-import type { RecipeAnalyzer } from "./analysis.ts";
-import { createLspTestHarness, type LspTestHarness } from "./lsp-test-harness.ts";
-import { getNodeRecipeAnalyzer } from "./node-analyzer.ts";
+import type { RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
+import { createLspTestHarness, type LspTestHarness } from "#testsupport/lsp-harness.ts";
+
+mock.restore();
+
+const nodeAnalyzerModule: typeof import("#runtime/node-analyzer.ts") = await import(
+	"#runtime/node-analyzer.ts"
+);
+const getNodeRecipeAnalyzer: typeof nodeAnalyzerModule.getNodeRecipeAnalyzer = nodeAnalyzerModule.getNodeRecipeAnalyzer;
 
 const PUBLISH_DIAGNOSTICS = "textDocument/publishDiagnostics";
 const LOG_MESSAGE = "window/logMessage";

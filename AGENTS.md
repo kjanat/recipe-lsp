@@ -8,18 +8,18 @@ diagnostics, hover text, symbols, and completions on top.
 
 ## WHERE TO LOOK
 
-| Task                   | Location                  | Notes                                                  |
-| ---------------------- | ------------------------- | ------------------------------------------------------ |
-| Node LSP entry         | `server.ts`               | stdio transport                                        |
-| Browser LSP entry      | `browser.ts`              | worker transport                                       |
-| Shared LSP wiring      | `src/server-common.ts`    | document lifecycle and request handlers                |
-| Parsing orchestration  | `src/analysis.ts`         | parser-backed analysis facade                          |
-| Node parser runtime    | `src/node-analyzer.ts`    | loads wasm from installed dependencies                 |
-| Browser parser runtime | `src/browser-analyzer.ts` | loads wasm from sibling worker assets                  |
-| Diagnostics + symbols  | `src/diagnostics.ts`      | syntax errors, section-order warnings, outline symbols |
-| UTF-8/LSP coords       | `src/coords.ts`           | tree-sitter byte offsets -> LSP UTF-16                 |
-| Hover/completion vocab | `src/vocabulary-*.ts`     | marker, abbreviation, and unit metadata                |
-| Behavior tests         | `src/analysis.test.ts`    | Unicode offsets, diagnostics, symbols, hover           |
+| Task                   | Location                                 | Notes                                                  |
+| ---------------------- | ---------------------------------------- | ------------------------------------------------------ |
+| Node LSP entry         | `server.ts`                              | stdio transport                                        |
+| Browser LSP entry      | `browser.ts`                             | worker transport                                       |
+| Shared LSP wiring      | `src/server/lsp-server.ts`               | document lifecycle and request handlers                |
+| Parsing orchestration  | `src/analysis/recipe-analyzer.ts`        | parser-backed analysis facade                          |
+| Node parser runtime    | `src/runtime/node-analyzer.ts`           | loads wasm from installed dependencies                 |
+| Browser parser runtime | `src/runtime/browser-analyzer.ts`        | loads wasm from sibling worker assets                  |
+| Diagnostics + symbols  | `src/analysis/diagnostics.ts`            | syntax errors, section-order warnings, outline symbols |
+| UTF-8/LSP coords       | `src/analysis/lsp-positions.ts`          | tree-sitter byte offsets -> LSP UTF-16                 |
+| Hover/completion vocab | `src/vocabulary/*.ts`                    | marker, abbreviation, and unit metadata                |
+| Behavior tests         | `tests/analysis/recipe-analyzer.test.ts` | Unicode offsets, diagnostics, symbols, hover           |
 
 ## SOURCE OF TRUTH
 
