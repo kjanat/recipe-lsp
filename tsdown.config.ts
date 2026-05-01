@@ -10,10 +10,7 @@ const runtimeWasmPath = fileURLToPath(
 	import.meta.resolve("web-tree-sitter/web-tree-sitter.wasm"),
 );
 const recipeWasmPath = fileURLToPath(
-	new URL(
-		"./tree-sitter-recipe.wasm",
-		import.meta.resolve("tree-sitter-recipe/package.json"),
-	),
+	import.meta.resolve("tree-sitter-recipe/tree-sitter-recipe.wasm"),
 );
 
 function copyWasmArtifacts(): void {

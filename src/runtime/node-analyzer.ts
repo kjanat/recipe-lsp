@@ -11,7 +11,7 @@ function resolveRuntimeWasmPath(): string {
 }
 
 function resolveRecipeWasmUrl(): Promise<URL> {
-	return Promise.resolve(new URL("../tree-sitter-recipe.wasm", import.meta.resolve("tree-sitter-recipe")));
+	return Promise.resolve(new URL(import.meta.resolve("tree-sitter-recipe/tree-sitter-recipe.wasm")));
 }
 
 async function createNodeRecipeAnalyzer(): Promise<RecipeAnalyzer> {
