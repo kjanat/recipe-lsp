@@ -311,7 +311,7 @@ describe("completionsAt", () => {
 		const pc = analyzer
 			.completionsAt(analysis, { line: 0, character: source.length })
 			.find((item) => item.label === "p.c.");
-		if (!pc || !pc.textEdit || !("range" in pc.textEdit)) {
+		if (!pc?.textEdit || !("range" in pc.textEdit)) {
 			throw new Error("expected p.c. with a textEdit range");
 		}
 		// Range starts at the `p` so the client filters the typed `p.` against the

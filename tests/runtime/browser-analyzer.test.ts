@@ -6,7 +6,6 @@ const stubLocateFiles: string[] = [];
 const stubLanguageLoads: unknown[] = [];
 
 const stubLanguagesSeenByAnalyzer: unknown[] = [];
-// biome-ignore lint/style/noMagicNumbers: canonical empty wasm header bytes.
 const WASM_MAGIC = [0, 97, 115, 109] as const;
 const WASM_VERSION = [1, 0, 0, 0] as const;
 const MINIMAL_WASM = Uint8Array.from([...WASM_MAGIC, ...WASM_VERSION]);

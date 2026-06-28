@@ -15,5 +15,13 @@
 		"C++": { "formatter": ["language_server", "prettier"] },
 		"YAML": { "language_servers": ["!actions-languageserver"] },
 		"GitHub Actions": { "language_servers": ["!actions-languageserver"] }
+	},
+	"lsp": {
+		"biome": {
+			"settings": {
+				"config_path": "./biome.json",
+				"require_config_file": true
+			}
+		}
 	}
 }

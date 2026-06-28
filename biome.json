@@ -13,13 +13,13 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"complexity": "on",
-			"correctness": "on",
-			"nursery": "on",
-			"performance": "on",
-			"security": "on",
-			"style": "on",
-			"suspicious": "on"
+			"complexity": { "recommended": true },
+			"correctness": { "recommended": true },
+			"nursery": { "recommended": true },
+			"performance": { "recommended": true },
+			"security": { "recommended": true },
+			"style": { "recommended": true },
+			"suspicious": { "recommended": true }
 		},
 		"domains": {
 			"types": "recommended",
@@ -42,6 +42,19 @@
 						"noNodejsModules": "off",
 						"noProcessGlobal": "off",
 						"noUnresolvedImports": "off"
+					},
+					"complexity": {
+						"noExcessiveLinesPerFunction": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["tsdown.config.ts"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noDefaultExport": "off"
 					}
 				}
 			}

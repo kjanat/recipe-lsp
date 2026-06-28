@@ -10,7 +10,6 @@ const distDir = join(repoRoot, "dist");
 const builtServerPath = join(distDir, "server.mjs");
 const builtBrowserPath = join(distDir, "browser.js");
 const execFileAsync = promisify(execFile);
-// biome-ignore lint/style/noMagicNumbers: mebibyte-sized child-process output cap.
 const ONE_MEBIBYTE: number = 1024 * 1024;
 const MAX_COMMAND_OUTPUT: number = 10 * ONE_MEBIBYTE;
 

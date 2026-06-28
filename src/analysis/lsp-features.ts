@@ -10,6 +10,9 @@ const MARKER_SECTION: ReadonlyMap<string, CompletionSection> = new Map([
 	["signa_marker", "signa"],
 ]);
 
+/** Any single whitespace character — used to detect a line's first token. */
+const WHITESPACE = /\s/u;
+
 const COMMENT_FOLD_KIND = "comment";
 const REGION_FOLD_KIND = "region";
 const TOKEN_MODIFIERS = 0;
@@ -287,7 +290,7 @@ export function completionContextAt(
 	const lineBeforeCursor = (lines[position.line] ?? "").slice(0, position.character).trim();
 	// A marker is always a line's first token, so offer markers while the cursor is
 	// still inside that first token (empty prefix, or a single word with no whitespace).
-	const atLineStart = !/\s/u.test(lineBeforeCursor);
+	const atLineStart = !WHITESPACE.test(lineBeforeCursor);
 	let section: CompletionSection = "top-level";
 	let markerStart: Point | null = null;
 	let afterNumber = false;

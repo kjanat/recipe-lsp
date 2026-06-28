@@ -4,11 +4,12 @@
 	"version": "0.2.0",
 	"license": "MIT",
 	"exports": {
-		".": "./dist/server.mjs",
-		"./browser": "./dist/browser.js"
+		".": "./mod.ts",
+		"./browser": "./browser.ts",
+		"./server": "./server.ts"
 	},
 	"publish": {
-		"include": ["dist/**", "LICENSE", "README.md", "jsr.json"],
+		"include": ["src/", "LICENSE", "README.md", "jsr.json", "server.ts", "browser.ts", "mod.ts"],
 		"exclude": ["!dist"]
 	}
 }

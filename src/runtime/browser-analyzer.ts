@@ -1,8 +1,12 @@
-import recipeWasmUrl from "tree-sitter-recipe/tree-sitter-recipe.wasm?url";
 import { Language, Parser } from "web-tree-sitter";
-import runtimeWasmUrl from "web-tree-sitter/web-tree-sitter.wasm?url";
 
 import { createRecipeAnalyzer, type RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
+
+// Resolve the wasm assets ourselves at runtime — portable across Deno/JSR,
+// Node, and any bundler — instead of the bundler-only `?url` import sugar that
+// JSR can't follow. The browser build rewrites these to emitted assets.
+const recipeWasmUrl = import.meta.resolve("tree-sitter-recipe/tree-sitter-recipe.wasm");
+const runtimeWasmUrl = import.meta.resolve("web-tree-sitter/web-tree-sitter.wasm");
 
 type BrowserLanguage = Awaited<ReturnType<typeof Language.load>>;
 type LanguageSource = Parameters<typeof Language.load>[0];
