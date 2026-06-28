@@ -304,6 +304,35 @@ describe("completionsAt", () => {
 		expect(labels).toContain("Da/");
 		expect(labels).toContain("D/");
 	});
+
+	test("dotted abbreviations carry an edit range over the whole token", () => {
+		const source = "S/ 3 dd 1 caps p.";
+		const analysis = analyzer.analyzeRecipe(source);
+		const pc = analyzer
+			.completionsAt(analysis, { line: 0, character: source.length })
+			.find((item) => item.label === "p.c.");
+		if (!pc || !pc.textEdit || !("range" in pc.textEdit)) {
+			throw new Error("expected p.c. with a textEdit range");
+		}
+		// Range starts at the `p` so the client filters the typed `p.` against the
+		// full label instead of resetting its word at the dot.
+		expect(pc.textEdit.range.start.character).toBe(source.indexOf("p."));
+		expect(pc.textEdit.range.end.character).toBe(source.length);
+		expect(pc.filterText).toBe("p.c.");
+	});
+
+	test("completion docs expand the abbreviation instead of naming its category", () => {
+		const source = "S/ 3 dd 1 caps p.";
+		const analysis = analyzer.analyzeRecipe(source);
+		const pc = analyzer
+			.completionsAt(analysis, { line: 0, character: source.length })
+			.find((item) => item.label === "p.c.");
+		if (!pc || typeof pc.documentation !== "object" || !("value" in pc.documentation)) {
+			throw new Error("expected markdown documentation on p.c.");
+		}
+		expect(pc.detail).toBe("post cibum");
+		expect(pc.documentation.value).toContain("na de maaltijd");
+	});
 });
 
 describe("semantic tokens", () => {

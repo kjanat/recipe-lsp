@@ -92,3 +92,26 @@ export function toRange(lines: string[], node: Node): Range {
 		end: toPosition(lines, node.endPosition),
 	};
 }
+
+const TOKEN_WHITESPACE = /\s/u;
+
+/**
+ * The whitespace-delimited token surrounding `position`. Completions edit this
+ * range so the client filters against the whole token — recipe abbreviations
+ * contain `.`, which editors otherwise treat as a word boundary and mis-filter.
+ */
+export function currentTokenRange(lines: string[], position: Position): Range {
+	const line = lines[position.line] ?? "";
+	let start = position.character;
+	while (start > 0 && !TOKEN_WHITESPACE.test(line.charAt(start - 1))) {
+		start -= 1;
+	}
+	let end = position.character;
+	while (end < line.length && !TOKEN_WHITESPACE.test(line.charAt(end))) {
+		end += 1;
+	}
+	return {
+		start: { line: position.line, character: start },
+		end: { line: position.line, character: end },
+	};
+}

@@ -21,7 +21,7 @@ import {
 	type SemanticTokenSpan,
 	semanticTokenTypes,
 } from "./lsp-features.ts";
-import { splitLines, toPoint, toRange } from "./lsp-positions.ts";
+import { currentTokenRange, splitLines, toPoint, toRange } from "./lsp-positions.ts";
 
 function analyzeWithParser(parser: Parser, text: string): RecipeAnalysis {
 	const tree = parser.parse(text);
@@ -79,7 +79,14 @@ export function completionItems(): CompletionItem[] {
 
 export function completionsAt(analysis: RecipeAnalysis, position: Position): CompletionItem[] {
 	const context = completionContextAt(analysis.lines, analysis.tree.rootNode, position);
-	return completionsForContext(context);
+	const range = currentTokenRange(analysis.lines, position);
+	// Anchor every item to the current token so dotted abbreviations (`p.c.`)
+	// filter against the full token instead of the editor's `.`-split word.
+	return completionsForContext(context).map((item) => ({
+		...item,
+		filterText: item.filterText ?? item.label,
+		textEdit: { range, newText: item.insertText ?? item.label },
+	}));
 }
 
 export function selectionRanges(

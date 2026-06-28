@@ -17,6 +17,8 @@ import {
 import { UNITS } from "tree-sitter-recipe/grammar/units";
 import { type CompletionItem, CompletionItemKind, InsertTextFormat, MarkupKind } from "vscode-languageserver";
 
+import { glossFor } from "./glossary.ts";
+
 /** The recipe section a completion request lands in, or `top-level` between sections. */
 export type CompletionSection = "top-level" | "rx" | "dispense" | "signa";
 
@@ -65,6 +67,17 @@ function vocabCompletion(
 	documentation: string,
 	kind: CompletionItemKind,
 ): CompletionItem {
+	// When the token has a known meaning, surface the Latin expansion inline and
+	// the Dutch gloss in the docs, keeping the category as a subordinate label.
+	const gloss = glossFor(label);
+	if (gloss) {
+		return buildCompletion({
+			label,
+			detail: gloss.latin,
+			documentation: `${gloss.nl}\n\n*${detail}*`,
+			kind,
+		});
+	}
 	return buildCompletion({ label, detail, documentation, kind });
 }
 
