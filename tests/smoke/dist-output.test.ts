@@ -1,74 +1,65 @@
+import { $ } from "bun";
 import { beforeAll, describe, expect, test } from "bun:test";
-import { execFile } from "node:child_process";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import type { PathLike } from "node:fs";
+import { access, constants, readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 
-const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
+const repoRoot = dirname(fileURLToPath(import.meta.resolve("#pkg")));
 const distDir = join(repoRoot, "dist");
-const builtServerPath = join(distDir, "server.mjs");
-const builtBrowserPath = join(distDir, "browser.js");
-const execFileAsync = promisify(execFile);
-const ONE_MEBIBYTE: number = 1024 * 1024;
-const MAX_COMMAND_OUTPUT: number = 10 * ONE_MEBIBYTE;
 
-async function runCommand(cmd: readonly string[]): Promise<{ exitCode: number; stdout: string; stderr: string }> {
-	const [command, ...args] = cmd;
-	if (!command) {
-		throw new Error("Missing command");
-	}
-	try {
-		const result = await execFileAsync(command, args, { cwd: repoRoot, maxBuffer: MAX_COMMAND_OUTPUT });
-		return { exitCode: 0, stdout: result.stdout, stderr: result.stderr };
-	} catch (error) {
-		if (!(error instanceof Error)) {
-			throw error;
-		}
-
-		const commandError = error as Error & {
-			code?: number;
-			stdout?: string;
-			stderr?: string;
-		};
-		return {
-			exitCode: commandError.code ?? 1,
-			stdout: commandError.stdout ?? "",
-			stderr: commandError.stderr ?? "",
-		};
-	}
-}
+const [builtServerPath, builtBrowserPath, builtBrowserAnalyzerPath] = [
+	join(distDir, "server.js"),
+	join(distDir, "browser.js"),
+	join(distDir, "browser-analyzer.js"),
+];
 
 beforeAll(async () => {
-	const result = await runCommand(["bun", "run", "build"]);
-	if (result.exitCode !== 0) {
-		throw new Error(`build failed\nstdout:\n${result.stdout}\n\nstderr:\n${result.stderr}`);
+	const build = await $`bun run build`.cwd(repoRoot).nothrow().quiet();
+	if (build.exitCode !== 0) {
+		throw new Error(`build failed\nstdout:\n${build.stdout.toString()}\n\nstderr:\n${build.stderr.toString()}`);
 	}
 });
 
-describe("built output smoke", () => {
-	test("emits browser and wasm artifacts to dist", async () => {
-		const browserBundle = await readFile(builtBrowserPath, "utf8");
-		const runtimeWasm = await readFile(join(distDir, "web-tree-sitter.wasm"));
-		const recipeWasm = await readFile(join(distDir, "tree-sitter-recipe.wasm"));
+async function fileExists(path: PathLike): Promise<boolean> {
+	try {
+		await access(path, constants.F_OK);
+		return true;
+	} catch {
+		return false;
+	}
+}
 
-		expect(browserBundle).not.toContain("import recipeWasmUrl from \"tree-sitter-recipe/tree-sitter-recipe.wasm?url\"");
-		expect(browserBundle).not.toContain("import runtimeWasmUrl from \"web-tree-sitter/web-tree-sitter.wasm?url\"");
-		expect(runtimeWasm.byteLength).toBeGreaterThan(0);
-		expect(recipeWasm.byteLength).toBeGreaterThan(0);
+describe("built output smoke", () => {
+	test("browser build resolves wasm at runtime, emits no wasm assets", async () => {
+		// The browser entry exists and pulls in the analyzer chunk.
+		const browserBundle = await readFile(builtBrowserPath, "utf8");
+		expect(browserBundle).toContain("./browser-analyzer.js");
+
+		// Wasm is resolved at runtime via `import.meta.resolve` of the package
+		// specifiers — not inlined as bundler-only `?url` assets.
+		const analyzerChunk = await readFile(builtBrowserAnalyzerPath, "utf8");
+		expect(analyzerChunk).toContain("import.meta.resolve");
+		expect(analyzerChunk).toContain("tree-sitter-recipe/tree-sitter-recipe.wasm");
+		expect(analyzerChunk).toContain("web-tree-sitter/web-tree-sitter.wasm");
+		expect(analyzerChunk).not.toContain("?url");
+
+		// No wasm is emitted to dist; consumers resolve it from node_modules.
+		expect(await fileExists(join(distDir, "web-tree-sitter.wasm"))).toBeFalse();
+		expect(await fileExists(join(distDir, "tree-sitter-recipe.wasm"))).toBeFalse();
 	});
 
 	test("built CLI prints help", async () => {
-		const result = await runCommand(["node", builtServerPath, "--help"]);
+		const result = await $`node ${builtServerPath} --help`.cwd(repoRoot).nothrow().quiet();
 		expect(result.exitCode).toBe(0);
-		expect(result.stdout).toContain("Usage:");
-		expect(result.stdout).toContain("--stdio");
+		expect(result.stdout.toString()).toContain("Usage:");
+		expect(result.stdout.toString()).toContain("--stdio");
 	});
 
 	test("built CLI prints friendly unknown arg error", async () => {
-		const result = await runCommand(["node", builtServerPath, "skraskra"]);
+		const result = await $`node ${builtServerPath} skraskra`.cwd(repoRoot).nothrow().quiet();
 		expect(result.exitCode).toBe(1);
-		expect(result.stderr).toContain("Unknown argument");
-		expect(result.stderr).toContain("Error:");
+		expect(result.stderr.toString()).toContain("Unknown argument");
+		expect(result.stderr.toString()).toContain("Error:");
 	});
 });

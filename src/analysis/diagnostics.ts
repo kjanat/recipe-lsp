@@ -1,13 +1,9 @@
-import {
-	type Diagnostic,
-	DiagnosticSeverity,
-	type DocumentSymbol,
-	type Range,
-	SymbolKind,
-} from "vscode-languageserver";
-import type { Node } from "web-tree-sitter";
+import { firstLineOf, toRange } from "#anal/lsp-positions.ts";
+import { walk } from "#anal/tree-walk.ts";
 
-import { firstLineOf, toRange } from "./lsp-positions.ts";
+import type { Diagnostic, DocumentSymbol, Range } from "vscode-languageserver";
+import { DiagnosticSeverity, SymbolKind } from "vscode-languageserver";
+import type { Node } from "web-tree-sitter";
 
 const SECTION_TYPES = new Set(["rx_section", "dispense_section", "signa_section"]);
 
@@ -34,13 +30,6 @@ function truncate(text: string, maxLength: number): string {
 	}
 
 	return `${text.slice(0, Math.max(0, maxLength - 1))}…`;
-}
-
-function walk(start: Node, visit: (current: Node) => void): void {
-	visit(start);
-	for (const child of start.children) {
-		walk(child, visit);
-	}
 }
 
 function diagnosticKey(diagnostic: Diagnostic): string {

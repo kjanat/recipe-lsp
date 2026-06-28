@@ -13,11 +13,12 @@
 		"noEmit": true,
 		"skipLibCheck": true,
 		"allowJs": true,
-		"checkJs": true,
 		"resolveJsonModule": true,
 		"isolatedModules": true,
 		"verbatimModuleSyntax": true,
+		"isolatedDeclarations": false,
+		"composite": true,
 		"types": ["bun", "node", "rolldown-plugin-wasm/types"]
 	},
-	"include": ["browser.ts", "server.ts", "src/**/*.ts", "tests/**/*.ts"]
+	"exclude": ["dist", "node_modules"]
 }

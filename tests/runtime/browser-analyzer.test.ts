@@ -1,6 +1,6 @@
-import { describe, expect, test } from "bun:test";
-
 import type { RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
+
+import { describe, expect, test } from "bun:test";
 
 const stubLocateFiles: string[] = [];
 const stubLanguageLoads: unknown[] = [];

@@ -1,21 +1,16 @@
+import { byteColumnToCharacter, toPoint, toRange } from "#anal/lsp-positions.ts";
+import { walk } from "#anal/tree-walk.ts";
+import type { CompletionContext, CompletionSection } from "#vocab/completions.ts";
+
 import type { FoldingRange, Position, Range, SelectionRange } from "vscode-languageserver";
 import type { Node, Point } from "web-tree-sitter";
-
-import type { CompletionContext, CompletionSection } from "#vocab/completions.ts";
-import { byteColumnToCharacter, toPoint, toRange } from "./lsp-positions.ts";
-
-const MARKER_SECTION: ReadonlyMap<string, CompletionSection> = new Map([
-	["rx_marker", "rx"],
-	["dispense_marker", "dispense"],
-	["signa_marker", "signa"],
-]);
-
-/** Any single whitespace character — used to detect a line's first token. */
-const WHITESPACE = /\s/u;
 
 const COMMENT_FOLD_KIND = "comment";
 const REGION_FOLD_KIND = "region";
 const TOKEN_MODIFIERS = 0;
+
+/** Any single whitespace character. Must not be global/sticky; `.test()` should stay stateless. */
+const WHITESPACE = /\s/u;
 
 const TOKEN_TYPES = [
 	"keyword",
@@ -30,7 +25,19 @@ const TOKEN_TYPES = [
 	"comment",
 ] as const;
 
-const FOLDABLE_NODE_TYPES = new Set([
+type SemanticTokenType = (typeof TOKEN_TYPES)[number];
+
+const TOKEN_TYPE_INDEX: ReadonlyMap<SemanticTokenType, number> = new Map(
+	TOKEN_TYPES.map((type, index) => [type, index]),
+);
+
+const MARKER_SECTIONS: ReadonlyMap<string, CompletionSection> = new Map([
+	["rx_marker", "rx"],
+	["dispense_marker", "dispense"],
+	["signa_marker", "signa"],
+]);
+
+const FOLDABLE_NODE_TYPES: ReadonlySet<string> = new Set([
 	"rx_section",
 	"dispense_section",
 	"signa_section",
@@ -38,16 +45,42 @@ const FOLDABLE_NODE_TYPES = new Set([
 	"doc_comment_block",
 ]);
 
-const COMMENT_NODE_TYPES = new Set([
+const COMMENT_NODE_TYPES: ReadonlySet<string> = new Set([
 	"line_comment",
 	"block_comment",
 	"doc_comment_line",
 	"doc_comment_block",
 ]);
 
-const SEMANTIC_TOKEN_TYPES: readonly string[] = [...TOKEN_TYPES];
+const DIRECT_TOKEN_TYPES: ReadonlyMap<string, SemanticTokenType> = new Map([
+	["rx_marker", "keyword"],
+	["dispense_marker", "keyword"],
+	["signa_marker", "keyword"],
 
-type SemanticTokenType = (typeof TOKEN_TYPES)[number];
+	// `frequency` is a container of `number` + `period`/`count_word`.
+	// Tokenizing the container would overlap its children, so only classify leaves.
+	["period", "keyword"],
+	["count_word", "keyword"],
+	["frequency_abbrev", "keyword"],
+	["timing_abbrev", "keyword"],
+	["conditional_abbrev", "keyword"],
+
+	["number", "number"],
+
+	["unit", "type"],
+	["form_abbrev", "type"],
+
+	["route_abbrev", "function"],
+
+	["dispensing_abbrev", "property"],
+
+	["warning_abbrev", "macro"],
+
+	["compounding_abbrev", "operator"],
+	["fill_marker", "operator"],
+	["dtd_keyword", "operator"],
+	["dtd_no", "operator"],
+]);
 
 export interface SemanticTokenSpan {
 	line: number;
@@ -57,19 +90,22 @@ export interface SemanticTokenSpan {
 	tokenModifiers: number;
 }
 
-function walk(node: Node, visit: (node: Node) => void): void {
-	visit(node);
-	for (const child of node.children) {
-		walk(child, visit);
+function nextNamedParent(node: Node | null): Node | null {
+	let parent = node?.parent ?? null;
+
+	while (parent && !parent.isNamed) {
+		parent = parent.parent;
 	}
+
+	return parent;
 }
 
-function nextNamedParent(node: Node | null): Node | null {
-	let current = node?.parent ?? null;
-	while (current && !current.isNamed) {
-		current = current.parent;
-	}
-	return current;
+function comparePoints(left: Point, right: Point): number {
+	return left.row === right.row ? left.column - right.column : left.row - right.row;
+}
+
+function isAfter(left: Point, right: Point): boolean {
+	return comparePoints(left, right) > 0;
 }
 
 function rangeKey(range: Range): string {
@@ -77,60 +113,41 @@ function rangeKey(range: Range): string {
 	return `${start.line}:${start.character}:${end.line}:${end.character}`;
 }
 
+function emptyRange(position: Position): Range {
+	return { start: position, end: position };
+}
+
 function tokenTypeIndex(type: SemanticTokenType): number {
-	return TOKEN_TYPES.indexOf(type);
+	const index = TOKEN_TYPE_INDEX.get(type);
+	if (index === undefined) {
+		throw new RangeError(`Unknown semantic token type: ${type}`);
+	}
+
+	return index;
 }
 
-function tokenTypeForWordParent(parentType: string | undefined): SemanticTokenType | null {
-	if (parentType === "ingredient_line" || parentType === "dispense_body") {
-		return "variable";
-	}
-	if (parentType === "signa_line") {
-		return "string";
-	}
-	return null;
-}
-
-function tokenTypeForNode(node: Node): SemanticTokenType | null {
-	switch (node.type) {
-		case "rx_marker":
-		case "dispense_marker":
-		case "signa_marker":
-		// `frequency` ("3 dd" / "driemaal daags") is a container of `number` +
-		// `period`/`count_word`; tokenizing the container would overlap the inner
-		// `number` span, so classify the leaves and leave the container untyped.
-		case "period":
-		case "count_word":
-		case "frequency_abbrev":
-		case "timing_abbrev":
-		case "conditional_abbrev":
-			return "keyword";
-		case "number":
-			return "number";
-		case "unit":
-		case "form_abbrev":
-			return "type";
-		case "route_abbrev":
-			return "function";
-		case "dispensing_abbrev":
-			return "property";
-		case "warning_abbrev":
-			return "macro";
-		case "compounding_abbrev":
-		case "fill_marker":
-		case "dtd_keyword":
-		case "dtd_no":
-			return "operator";
-		case "word":
-			return tokenTypeForWordParent(nextNamedParent(node)?.type);
-		case "line_comment":
-		case "block_comment":
-		case "doc_comment_line":
-		case "doc_comment_block":
-			return "comment";
+function tokenTypeForWord(parentType: string | undefined): SemanticTokenType | null {
+	switch (parentType) {
+		case "ingredient_line":
+		case "dispense_body":
+			return "variable";
+		case "signa_line":
+			return "string";
 		default:
 			return null;
 	}
+}
+
+function tokenTypeForNode(node: Node): SemanticTokenType | null {
+	if (COMMENT_NODE_TYPES.has(node.type)) {
+		return "comment";
+	}
+
+	if (node.type === "word") {
+		return tokenTypeForWord(nextNamedParent(node)?.type);
+	}
+
+	return DIRECT_TOKEN_TYPES.get(node.type) ?? null;
 }
 
 function pushSemanticTokenLine(
@@ -160,6 +177,7 @@ function pushSemanticToken(
 	tokenType: SemanticTokenType,
 ): void {
 	const range = toRange(lines, node);
+
 	if (range.start.line === range.end.line) {
 		pushSemanticTokenLine(
 			tokens,
@@ -175,8 +193,17 @@ function pushSemanticToken(
 		const text = lines[line] ?? "";
 		const startCharacter = line === range.start.line ? range.start.character : 0;
 		const endCharacter = line === range.end.line ? range.end.character : text.length;
+
 		pushSemanticTokenLine(tokens, line, startCharacter, endCharacter - startCharacter, tokenType);
 	}
+}
+
+function compareSemanticTokens(left: SemanticTokenSpan, right: SemanticTokenSpan): number {
+	return (
+		left.line - right.line
+		|| left.character - right.character
+		|| left.length - right.length
+	);
 }
 
 function foldRangeKind(nodeType: string): string {
@@ -184,28 +211,54 @@ function foldRangeKind(nodeType: string): string {
 }
 
 function foldEndLine(range: Range): number {
-	if (range.end.character === 0) {
-		return Math.max(range.start.line, range.end.line - 1);
-	}
-	return range.end.line;
+	return range.end.character === 0
+		? Math.max(range.start.line, range.end.line - 1)
+		: range.end.line;
 }
 
-function buildSelectionRangeChain(ranges: Range[]): SelectionRange | null {
-	const firstRange = ranges[0];
-	if (!firstRange) {
-		return null;
+function buildSelectionRangeChain(ranges: readonly Range[]): SelectionRange | null {
+	let parent: SelectionRange | undefined;
+
+	for (let index = ranges.length - 1; index >= 0; index -= 1) {
+		const range = ranges[index];
+		if (!range) {
+			continue;
+		}
+
+		parent = parent ? { range, parent } : { range };
 	}
 
-	let current: SelectionRange | null = null;
-	for (let index = ranges.length - 1; index >= 0; index -= 1) {
-		const range = ranges[index] ?? firstRange;
-		current = current ? { range, parent: current } : { range };
+	return parent ?? null;
+}
+
+function firstTokenContainsCursor(lines: string[], position: Position): boolean {
+	// `trimStart` keeps indentation tolerance but preserves a trailing space —
+	// that delimiter is exactly the signal that the cursor has left the first
+	// token, so markers should no longer be offered.
+	const prefix = (lines[position.line] ?? "").slice(0, position.character).trimStart();
+	return !WHITESPACE.test(prefix);
+}
+
+/**
+ * True when `node` is a bare number whose end touches the cursor with only
+ * whitespace in between. In that context, a unit is the natural next token.
+ */
+function isNumberImmediatelyLeft(lines: string[], node: Node, cursor: Point): boolean {
+	const end = node.endPosition;
+
+	if (end.row !== cursor.row || end.column > cursor.column) {
+		return false;
 	}
-	return current;
+
+	const line = lines[cursor.row] ?? "";
+	const from = byteColumnToCharacter(line, end.column);
+	const to = byteColumnToCharacter(line, cursor.column);
+
+	return line.slice(from, to).trim() === "";
 }
 
 export function semanticTokenTypes(): readonly string[] {
-	return SEMANTIC_TOKEN_TYPES;
+	return TOKEN_TYPES;
 }
 
 export function buildSemanticTokenSpans(lines: string[], root: Node): SemanticTokenSpan[] {
@@ -213,22 +266,12 @@ export function buildSemanticTokenSpans(lines: string[], root: Node): SemanticTo
 
 	walk(root, (node) => {
 		const tokenType = tokenTypeForNode(node);
-		if (tokenType !== null) {
+		if (tokenType) {
 			pushSemanticToken(tokens, lines, node, tokenType);
 		}
 	});
 
-	tokens.sort((left, right) => {
-		if (left.line !== right.line) {
-			return left.line - right.line;
-		}
-		if (left.character !== right.character) {
-			return left.character - right.character;
-		}
-		return left.length - right.length;
-	});
-
-	return tokens;
+	return tokens.sort(compareSemanticTokens);
 }
 
 export function buildFoldingRanges(lines: string[], root: Node): FoldingRange[] {
@@ -241,6 +284,7 @@ export function buildFoldingRanges(lines: string[], root: Node): FoldingRange[] 
 
 		const range = toRange(lines, node);
 		const endLine = foldEndLine(range);
+
 		if (endLine <= range.start.line) {
 			return;
 		}
@@ -255,31 +299,12 @@ export function buildFoldingRanges(lines: string[], root: Node): FoldingRange[] 
 	return ranges;
 }
 
-function comparePoints(left: Point, right: Point): number {
-	return left.row === right.row ? left.column - right.column : left.row - right.row;
-}
-
 /**
- * True when `node` is a bare number whose end touches the cursor with only
- * whitespace in between — i.e. the user just typed a dose amount and a unit is
- * the natural next token.
- */
-function isNumberImmediatelyLeft(lines: string[], node: Node, cursor: Point): boolean {
-	const end = node.endPosition;
-	if (end.row !== cursor.row || end.column > cursor.column) {
-		return false;
-	}
-
-	const line = lines[cursor.row] ?? "";
-	const fromCharacter = byteColumnToCharacter(line, end.column);
-	const toCharacter = byteColumnToCharacter(line, cursor.column);
-	return line.slice(fromCharacter, toCharacter).trim() === "";
-}
-
-/**
- * Classify the completion context at `position`. The active section is the
- * nearest marker at or before the cursor — robust to the half-parsed
- * (`ERROR`-wrapped) trees that completion requests routinely land on.
+ * Classifies the completion context at `position`.
+ *
+ * The active section is the nearest marker at or before the cursor. This stays
+ * robust for half-parsed trees, including completion requests inside `ERROR`
+ * nodes while the user is still typing.
  */
 export function completionContextAt(
 	lines: string[],
@@ -287,21 +312,25 @@ export function completionContextAt(
 	position: Position,
 ): CompletionContext {
 	const cursor = toPoint(lines, position);
-	const lineBeforeCursor = (lines[position.line] ?? "").slice(0, position.character).trim();
-	// A marker is always a line's first token, so offer markers while the cursor is
-	// still inside that first token (empty prefix, or a single word with no whitespace).
-	const atLineStart = !WHITESPACE.test(lineBeforeCursor);
+	const atLineStart = firstTokenContainsCursor(lines, position);
+
 	let section: CompletionSection = "top-level";
 	let markerStart: Point | null = null;
 	let afterNumber = false;
 
 	walk(root, (node) => {
-		const markerSection = MARKER_SECTION.get(node.type);
-		if (markerSection && comparePoints(node.startPosition, cursor) <= 0) {
-			if (markerStart === null || comparePoints(node.startPosition, markerStart) > 0) {
-				markerStart = node.startPosition;
-				section = markerSection;
-			}
+		// A node (and its whole subtree) that starts after the cursor can hold
+		// neither a marker at-or-before the cursor nor a number left of it, so
+		// prune it. This keeps the ERROR-nested robustness while skipping the
+		// entire document to the right of the cursor.
+		if (isAfter(node.startPosition, cursor)) {
+			return false;
+		}
+
+		const markerSection = MARKER_SECTIONS.get(node.type);
+		if (markerSection && (markerStart === null || isAfter(node.startPosition, markerStart))) {
+			markerStart = node.startPosition;
+			section = markerSection;
 		}
 
 		if (node.type === "number" && isNumberImmediatelyLeft(lines, node, cursor)) {
@@ -319,21 +348,23 @@ export function buildSelectionRanges(
 ): SelectionRange[] {
 	return positions.map((position) => {
 		const point = toPoint(lines, position);
-		let node = root.namedDescendantForPosition(point, point);
 		const ranges: Range[] = [];
 		const seen = new Set<string>();
+
+		let node: Node | null = root.namedDescendantForPosition(point, point);
 
 		while (node) {
 			const range = toRange(lines, node);
 			const key = rangeKey(range);
+
 			if (!seen.has(key)) {
 				seen.add(key);
 				ranges.push(range);
 			}
+
 			node = nextNamedParent(node);
 		}
 
-		const chain = buildSelectionRangeChain(ranges);
-		return chain ?? { range: { start: position, end: position } };
+		return buildSelectionRangeChain(ranges) ?? { range: emptyRange(position) };
 	});
 }

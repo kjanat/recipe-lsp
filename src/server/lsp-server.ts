@@ -1,20 +1,26 @@
-import {
-	type Connection,
-	type InitializeResult,
-	type SemanticTokens,
-	SemanticTokensBuilder,
-	TextDocuments,
-	TextDocumentSyncKind,
+import type { RecipeAnalysis, RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
+
+import { MarkupKind, SemanticTokensBuilder, TextDocuments, TextDocumentSyncKind } from "vscode-languageserver";
+import type {
+	Connection,
+	Diagnostic,
+	InitializeParams,
+	InitializeResult,
+	MarkupContent,
+	SemanticTokens,
 } from "vscode-languageserver";
 import { TextDocument } from "vscode-languageserver-textdocument";
-
-import type { RecipeAnalysis, RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
 
 interface ServerState {
 	connection: Connection;
 	documents: TextDocuments<TextDocument>;
 	analyses: Map<string, { version: number; analysis: RecipeAnalysis }>;
 	getAnalyzer: () => Promise<RecipeAnalyzer>;
+	/** Set from the client's `textDocument.diagnostic.markupMessageSupport` at initialize.
+	 * Only when true may diagnostic messages be sent as MarkupContent (LSP 3.18);
+	 * otherwise the spec mandates a plain string and a non-supporting client would
+	 * fail to decode the object.	 */
+	supportsMarkupDiagnostics: boolean;
 }
 
 function errorDetail(error: unknown): string {
@@ -40,12 +46,27 @@ async function getAnalysis(state: ServerState, document: TextDocument): Promise<
 	return analysis;
 }
 
+/** Diagnostic messages are authored with Markdown (e.g. a code span around the
+ * offending token). Render them as Markdown only for clients that advertised
+ * support; otherwise keep the plain string the analyzer produced. */
+function asMarkdownMessage(message: string | MarkupContent): MarkupContent {
+	const value = typeof message === "string" ? message : message.value;
+	return { kind: MarkupKind.Markdown, value };
+}
+
+function diagnosticsForClient(state: ServerState, diagnostics: readonly Diagnostic[]): Diagnostic[] {
+	if (!state.supportsMarkupDiagnostics) {
+		return [...diagnostics];
+	}
+	return diagnostics.map((diagnostic) => ({ ...diagnostic, message: asMarkdownMessage(diagnostic.message) }));
+}
+
 function publishDiagnostics(state: ServerState, document: TextDocument): void {
 	(async (): Promise<void> => {
 		const analysis = await getAnalysis(state, document);
 		state.connection.sendDiagnostics({
 			uri: document.uri,
-			diagnostics: analysis.diagnostics,
+			diagnostics: diagnosticsForClient(state, analysis.diagnostics),
 		});
 	})().catch((error: unknown) => {
 		reportError(state.connection, `Failed to analyze ${document.uri}`, error);
@@ -86,10 +107,10 @@ function serverCapabilities(analyzer: RecipeAnalyzer): InitializeResult {
 				},
 			},
 			completionProvider: {
-				// `/` opens a marker (`R/`, `Da/`). `.` is deliberately NOT a trigger:
-				// abbreviations auto-trigger on letters, and triggering on `.` forces a
-				// mid-token re-request that resets the client's filter (so `p.` would
-				// drop `p.c.`). Letting the open list keep filtering avoids that.
+				/** `/` opens a marker (`R/`, `Da/`). `.` is deliberately NOT a trigger:
+				 * abbreviations auto-trigger on letters, and triggering on `.` forces a mid-token re-request
+				 * that resets the client's filter (so `p.` would drop `p.c.`).
+				 * Letting the open list keep filtering avoids that. */
 				triggerCharacters: ["/"],
 			},
 		},
@@ -110,7 +131,8 @@ function wireDocumentEvents(state: ServerState): void {
 }
 
 function wireRequests(state: ServerState): void {
-	state.connection.onInitialize(async (): Promise<InitializeResult> => {
+	state.connection.onInitialize(async (params: InitializeParams): Promise<InitializeResult> => {
+		state.supportsMarkupDiagnostics = params.capabilities.textDocument?.diagnostic?.markupMessageSupport ?? false;
 		return serverCapabilities(await state.getAnalyzer());
 	});
 
@@ -179,6 +201,7 @@ export function startRecipeServer(
 		documents: new TextDocuments(TextDocument),
 		analyses: new Map(),
 		getAnalyzer,
+		supportsMarkupDiagnostics: false,
 	};
 
 	wireDocumentEvents(state);

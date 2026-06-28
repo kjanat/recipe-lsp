@@ -1,4 +1,5 @@
-import { AbstractMessageWriter, type Message, type MessageWriter } from "vscode-jsonrpc";
+import type { Message, MessageWriter } from "vscode-jsonrpc";
+import { AbstractMessageWriter } from "vscode-jsonrpc";
 
 const DEFAULT_AWAIT_TIMEOUT_MS = 1000;
 

@@ -1,10 +1,5 @@
-import {
-	AbstractMessageReader,
-	type DataCallback,
-	type Disposable,
-	type Message,
-	type MessageReader,
-} from "vscode-jsonrpc";
+import { AbstractMessageReader } from "vscode-jsonrpc";
+import type { DataCallback, Disposable, Message, MessageReader } from "vscode-jsonrpc";
 
 export class TestMessageReader extends AbstractMessageReader implements MessageReader {
 	#callback: DataCallback | undefined;

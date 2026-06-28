@@ -1,11 +1,12 @@
-import type { Message, NotificationMessage, RequestMessage, ResponseMessage } from "vscode-jsonrpc";
-import { createConnection } from "vscode-languageserver/node.js";
-
 import type { RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
 import { startRecipeServer } from "#server/lsp-server.ts";
-import { TestMessageReader } from "./message-reader.ts";
-import type { AwaitMessageOptions } from "./message-writer.ts";
-import { TestMessageWriter } from "./message-writer.ts";
+
+import { TestMessageReader } from "#testsupport/message-reader.ts";
+import type { AwaitMessageOptions } from "#testsupport/message-writer.ts";
+import { TestMessageWriter } from "#testsupport/message-writer.ts";
+
+import type { Message, NotificationMessage, RequestMessage, ResponseMessage } from "vscode-jsonrpc";
+import { createConnection } from "vscode-languageserver/node";
 
 const LOG_MESSAGE_METHOD = "window/logMessage";
 const ERROR_LOG_TYPE = 1;

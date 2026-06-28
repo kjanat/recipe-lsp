@@ -1,7 +1,18 @@
+import type { RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
+
 import { describe, expect, mock, test } from "bun:test";
 import { CompletionItemKind, DiagnosticSeverity } from "vscode-languageserver";
+import type { MarkupContent } from "vscode-languageserver";
 
-import type { RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
+// `Diagnostic.message` is `string | MarkupContent` (vscode-languageserver v10),
+// but the analyzer contract is plain strings — Markdown conversion happens in the
+// server layer. Assert that here instead of papering over a contract leak.
+function diagnosticText(message: string | MarkupContent): string {
+	if (typeof message !== "string") {
+		throw new Error("expected analyser diagnostics to use plain-string messages");
+	}
+	return message;
+}
 
 mock.restore();
 
@@ -19,7 +30,7 @@ function warningMessages(analyzerInput: string): string[] {
 	return analyzer
 		.analyzeRecipe(analyzerInput)
 		.diagnostics.filter((d) => d.severity === DiagnosticSeverity.Warning)
-		.map((d) => d.message);
+		.map((d) => diagnosticText(d.message));
 }
 
 describe("analyzeRecipe", () => {
@@ -40,18 +51,18 @@ describe("analyzeRecipe", () => {
 		const analysis = analyzer.analyzeRecipe("R/ claritromycin ???");
 
 		expect(
-			analysis.diagnostics.some((diagnostic) => diagnostic.message.startsWith("Unexpected syntax")),
+			analysis.diagnostics.some((diagnostic) => diagnosticText(diagnostic.message).startsWith("Unexpected syntax")),
 		).toBe(true);
 	});
 
 	test("truncates long stray syntax in diagnostic message", () => {
 		const longGarbage = "?".repeat(TRUNCATE_TRIGGER_LENGTH);
 		const analysis = analyzer.analyzeRecipe(`R/ amoxicilline ${longGarbage}`);
-		const errorDiagnostic = analysis.diagnostics.find((d) => d.message.startsWith("Unexpected syntax"));
+		const errorDiagnostic = analysis.diagnostics.find((d) => diagnosticText(d.message).startsWith("Unexpected syntax"));
 		if (!errorDiagnostic) {
 			throw new Error("expected an unexpected-syntax diagnostic");
 		}
-		expect(errorDiagnostic.message).toContain("…");
+		expect(diagnosticText(errorDiagnostic.message)).toContain("…");
 	});
 
 	test("truncates long section headlines in symbol names", () => {
@@ -67,11 +78,11 @@ describe("analyzeRecipe", () => {
 	test("reports missing tokens with humanized node type", () => {
 		// `dtd` directive expects `dtd no <number>`; without the number the parser inserts a missing node.
 		const analysis = analyzer.analyzeRecipe("R/ a 1mg dtd");
-		const missing = analysis.diagnostics.find((d) => d.message.startsWith("Missing"));
+		const missing = analysis.diagnostics.find((d) => diagnosticText(d.message).startsWith("Missing"));
 		if (!missing) {
 			throw new Error("expected a missing-token diagnostic");
 		}
-		expect(missing.message).toBe("Missing number");
+		expect(diagnosticText(missing.message)).toBe("Missing number");
 	});
 });
 

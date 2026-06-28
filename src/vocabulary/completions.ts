@@ -1,3 +1,5 @@
+import { glossFor } from "#vocab/glossary.ts";
+
 import {
 	COMPOUNDING,
 	COMPOUNDING_MULTIWORD,
@@ -16,8 +18,6 @@ import {
 } from "tree-sitter-recipe/grammar/latin";
 import { UNITS } from "tree-sitter-recipe/grammar/units";
 import { type CompletionItem, CompletionItemKind, InsertTextFormat, MarkupKind } from "vscode-languageserver";
-
-import { glossFor } from "./glossary.ts";
 
 /** The recipe section a completion request lands in, or `top-level` between sections. */
 export type CompletionSection = "top-level" | "rx" | "dispense" | "signa";
@@ -67,9 +67,9 @@ function vocabCompletion(
 	documentation: string,
 	kind: CompletionItemKind,
 ): CompletionItem {
-	// When the token has a known meaning, show the Latin expansion AND the Dutch
-	// meaning inline (the Dutch is what the user actually needs), keeping the
-	// category as a subordinate label in the docs popup.
+	/** When the token has a known meaning, show the Latin expansion AND the Dutch
+	 * meaning inline (the Dutch is what the user actually needs), keeping the
+	 * category as a subordinate label in the docs popup. */
 	const gloss = glossFor(label);
 	if (gloss) {
 		return buildCompletion({
@@ -102,9 +102,11 @@ function dedupeByLabel(items: CompletionItem[]): CompletionItem[] {
 	});
 }
 
-const RECIPE_SNIPPET: string = String.raw`R/ \${1:ingredient} \${2:dose}
+const RECIPE_SNIPPET: string = `\
+R/ \${1:ingredient} \${2:dose}
 Da/ \${3:dispense}
-S/ \${0:directions}`;
+S/ \${0:directions}\
+`;
 
 interface LabelledEntry {
 	label: string;
@@ -112,14 +114,14 @@ interface LabelledEntry {
 	doc: string;
 }
 
-const MARKER_ENTRIES: readonly LabelledEntry[] = [
+const MARKER_ENTRIES: readonly LabelledEntry[] = /* dprint-ignore */ [
 	{ label: "R/", detail: "Recipe marker", doc: "Start the ingredient section." },
 	{ label: "Da/", detail: "Dispense marker", doc: "Start the dispense section." },
 	{ label: "D/", detail: "Dispense marker", doc: "Short form of the dispense section marker." },
 	{ label: "S/", detail: "Signa marker", doc: "Start the patient directions section." },
 ];
 
-const DIRECTIVE_ENTRIES: readonly LabelledEntry[] = [
+const DIRECTIVE_ENTRIES: readonly LabelledEntry[] = /* dprint-ignore */ [
 	{ label: "ad", detail: "Fill-to marker", doc: "Use in fill-to-total directives like `ad 100 g`." },
 	{ label: "dtd", detail: "Dispense-count directive", doc: "Use for dispense counts like `dtd no 21`." },
 	{ label: "d.t.d.", detail: "Dispense-count directive", doc: "Dotted form of the dispense-count directive." },
@@ -258,18 +260,42 @@ const ALL_COMPLETIONS = dedupeByLabel([
 	...UNIT_COMPLETIONS,
 ]);
 
-/** Completions tailored to a parse-tree context: section vocabulary, units-first after a dose number. */
-export function completionsForContext(context: CompletionContext): CompletionItem[] {
-	if (context.section === "top-level") {
+function computeContextCompletions(
+	section: CompletionSection,
+	afterNumber: boolean,
+	atLineStart: boolean,
+): CompletionItem[] {
+	if (section === "top-level") {
 		return MARKER_COMPLETIONS;
 	}
 
-	const section = SECTION_COMPLETIONS[context.section];
-	const base = context.afterNumber ? dedupeByLabel([...UNIT_COMPLETIONS, ...section]) : section;
-	if (context.atLineStart) {
-		return dedupeByLabel([...MARKER_COMPLETIONS, ...base]);
-	}
-	return base;
+	const sectionItems = SECTION_COMPLETIONS[section];
+	const base = afterNumber ? dedupeByLabel([...UNIT_COMPLETIONS, ...sectionItems]) : sectionItems;
+	return atLineStart ? dedupeByLabel([...MARKER_COMPLETIONS, ...base]) : base;
+}
+
+function contextKey(section: CompletionSection, afterNumber: boolean, atLineStart: boolean): string {
+	return `${section}:${afterNumber ? 1 : 0}:${atLineStart ? 1 : 0}`;
+}
+
+// The result is a pure function of (section, afterNumber, atLineStart) — a small,
+// closed set. Precompute every combination once so per-keystroke completion is a
+// map lookup instead of a fresh dedupe of spread arrays.
+const CONTEXT_COMPLETIONS: ReadonlyMap<string, CompletionItem[]> = new Map(
+	(["top-level", "rx", "dispense", "signa"] as const).flatMap((section) =>
+		[false, true].flatMap((afterNumber) =>
+			[false, true].map((atLineStart): [string, CompletionItem[]] => [
+				contextKey(section, afterNumber, atLineStart),
+				computeContextCompletions(section, afterNumber, atLineStart),
+			])
+		)
+	),
+);
+
+/** Completions tailored to a parse-tree context: section vocabulary, units-first after a dose number. */
+export function completionsForContext(context: CompletionContext): CompletionItem[] {
+	return CONTEXT_COMPLETIONS.get(contextKey(context.section, context.afterNumber, context.atLineStart))
+		?? ALL_COMPLETIONS;
 }
 
 /** The full, context-free vocabulary. Used as a fallback when no document is available. */

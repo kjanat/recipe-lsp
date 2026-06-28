@@ -1,12 +1,12 @@
-// Latin expansion + Dutch gloss for recognized recipe abbreviations.
-//
-// NOTE: this is a meanings layer keyed by the same tokens `tree-sitter-recipe`
-// recognizes. It deliberately duplicates the upstream token spelling (the
-// repo's usual rule is "no parallel lists") because the grammar exports only
-// recognition data, not semantics, and these meanings are wanted in hover now.
-// Keys are matched case-insensitively, so a single entry covers the grammar's
-// upper/lower spelling variants. Tokens whose meaning is uncertain are left
-// out on purpose — hover then falls back to the generic category label.
+/** Latin expansion + Dutch gloss for recognized recipe abbreviations.
+ *
+ * NOTE: this is a meanings layer keyed by the same tokens `tree-sitter-recipe`
+ * recognizes. It deliberately duplicates the upstream token spelling (the
+ * repo's usual rule is "no parallel lists") because the grammar exports only
+ * recognition data, not semantics, and these meanings are wanted in hover now.
+ * Keys are matched case-insensitively, so a single entry covers the grammar's
+ * upper/lower spelling variants. Tokens whose meaning is uncertain are left
+ * out on purpose — hover then falls back to the generic category label. */
 
 export interface Gloss {
 	/** The expanded Latin (or Dutch) phrase the abbreviation stands for. */
@@ -21,7 +21,7 @@ interface GlossEntry {
 	nl: string;
 }
 
-const ENTRIES: readonly GlossEntry[] = [
+const ENTRIES: readonly GlossEntry[] = /* dprint-ignore */ [
 	// Frequency
 	{ tokens: ["b.d.d.", "b.i.d."], latin: "bis de die", nl: "tweemaal daags" },
 	{ tokens: ["t.d.d.", "t.i.d."], latin: "ter de die", nl: "driemaal daags" },

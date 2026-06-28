@@ -23,19 +23,14 @@
 		},
 		"domains": {
 			"types": "recommended",
-			"project": "recommended"
+			"project": "recommended",
+			"test": "recommended"
 		}
 	},
 	"javascript": {},
 	"overrides": [
 		{
-			"includes": [
-				"server.ts",
-				"src/server/node-cli.ts",
-				"src/runtime/node-analyzer.ts",
-				"tsdown.config.ts",
-				"tests/smoke/**/*.ts"
-			],
+			"includes": ["server.ts", "src/**/node-*.ts", "tsdown.config.ts", "tests/smoke/**/*.ts"],
 			"linter": {
 				"rules": {
 					"correctness": {
@@ -65,7 +60,8 @@
 		"actions": {
 			"source": {
 				"recommended": true,
-				"organizeImports": "off"
+				"organizeImports": "off",
+				"preset": "recommended"
 			}
 		}
 	}

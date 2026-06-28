@@ -1,7 +1,9 @@
 import type { RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
 import { createLspTestHarness, type LspTestHarness } from "#testsupport/lsp-harness.ts";
+
 import { describe, expect, mock, test } from "bun:test";
 import type { NotificationMessage, ResponseMessage } from "vscode-jsonrpc";
+import { MarkupContent, MarkupKind } from "vscode-languageserver";
 import type {
 	DocumentSymbol,
 	FoldingRange,
@@ -34,6 +36,8 @@ const REQUEST_SELECTION_RANGE = 150;
 const REQUEST_SELECTION_RANGE_MISSING = 151;
 const REQUEST_SEMANTIC_TOKENS = 160;
 const REQUEST_SEMANTIC_TOKENS_MISSING = 161;
+const REQUEST_INITIALIZE_MARKUP = 200;
+const REQUEST_INITIALIZE_PLAIN = 201;
 
 const VALID_RECIPE = "R/ a 1mg\nS/ take 1";
 const SECTION_ORDER_BAD_RECIPE = "S/ take 1\nR/ a 1mg";
@@ -53,6 +57,14 @@ function publishParams(notification: NotificationMessage): PublishDiagnosticsPar
 		throw new Error("malformed publishDiagnostics params");
 	}
 	return { uri, diagnostics };
+}
+
+function firstDiagnosticMessage(params: PublishDiagnosticsParams): string | MarkupContent {
+	const [diagnostic] = params.diagnostics;
+	if (!diagnostic) {
+		throw new Error("expected at least one diagnostic");
+	}
+	return diagnostic.message;
 }
 
 function logMessageText(notification: NotificationMessage): string {
@@ -415,6 +427,49 @@ describe("startRecipeServer single-document extras", () => {
 		});
 		const response = await h.awaitResponse(REQUEST_SEMANTIC_TOKENS_MISSING);
 		expect(semanticTokensResult(response)).toEqual({ data: [] });
+	});
+});
+
+describe("startRecipeServer diagnostic message format", () => {
+	test("sends Markdown diagnostic messages when the client advertises markupMessageSupport", async () => {
+		const h = createLspTestHarness(getNodeRecipeAnalyzer);
+		h.request(REQUEST_INITIALIZE_MARKUP, "initialize", {
+			processId: 0,
+			capabilities: { textDocument: { diagnostic: { markupMessageSupport: true } } },
+			rootUri: null,
+		});
+		await h.awaitResponse(REQUEST_INITIALIZE_MARKUP);
+
+		const uri = "file:///markup.recipe";
+		const before = h.cursor();
+		h.notify("textDocument/didOpen", {
+			textDocument: { uri, languageId: "recipe", version: 1, text: SECTION_ORDER_BAD_RECIPE },
+		});
+		const params = await nextDiagnosticsFor(h, uri, before);
+		const message = firstDiagnosticMessage(params);
+		if (!MarkupContent.is(message)) {
+			throw new Error("expected a MarkupContent diagnostic message");
+		}
+		expect(message.kind).toBe(MarkupKind.Markdown);
+		expect(message.value.length).toBeGreaterThan(0);
+	});
+
+	test("sends plain-string diagnostic messages when the client lacks support", async () => {
+		const h = createLspTestHarness(getNodeRecipeAnalyzer);
+		h.request(REQUEST_INITIALIZE_PLAIN, "initialize", {
+			processId: 0,
+			capabilities: {},
+			rootUri: null,
+		});
+		await h.awaitResponse(REQUEST_INITIALIZE_PLAIN);
+
+		const uri = "file:///plain.recipe";
+		const before = h.cursor();
+		h.notify("textDocument/didOpen", {
+			textDocument: { uri, languageId: "recipe", version: 1, text: SECTION_ORDER_BAD_RECIPE },
+		});
+		const params = await nextDiagnosticsFor(h, uri, before);
+		expect(typeof firstDiagnosticMessage(params)).toBe("string");
 	});
 });
 

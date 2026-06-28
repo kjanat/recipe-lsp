@@ -1,9 +1,9 @@
+import type { RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
+import { createRecipeAnalyzer } from "#anal/recipe-analyzer.ts";
+
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-
 import { Language, Parser } from "web-tree-sitter";
-
-import { createRecipeAnalyzer, type RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
 
 function resolveRuntimeWasmPath(): string {
 	return fileURLToPath(import.meta.resolve("web-tree-sitter/web-tree-sitter.wasm"));
@@ -18,15 +18,9 @@ async function createNodeRecipeAnalyzer(): Promise<RecipeAnalyzer> {
 	const recipeWasmLocation = await resolveRecipeWasmUrl();
 
 	await Parser.init({
-		locateFile(scriptName: string): string {
-			if (
-				scriptName === "tree-sitter.wasm"
-				|| scriptName === "web-tree-sitter.wasm"
-			) {
-				return runtimeWasmPath;
-			}
-
-			return scriptName;
+		/* dprint-ignore */
+		locateFile(scriptName: string, matchesKnown = scriptName === "tree-sitter.wasm" || scriptName === "web-tree-sitter.wasm"): string {
+			return matchesKnown ? runtimeWasmPath : scriptName;
 		},
 	});
 

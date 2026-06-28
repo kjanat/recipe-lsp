@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @module
+ * @module server
  * Node stdio entrypoint for the recipe language server (`recipe-lsp`).
  *
  * Parses the transport flag (`--stdio` / `--node-ipc` / `--socket=PORT`), wires
@@ -10,11 +10,11 @@
  */
 import { argv, exit } from "node:process";
 
-import { createConnection, ProposedFeatures } from "vscode-languageserver/node.js";
+import { createConnection, ProposedFeatures } from "vscode-languageserver/node";
 
-import { getNodeRecipeAnalyzer } from "./src/runtime/node-analyzer.ts";
-import { startRecipeServer } from "./src/server/lsp-server.ts";
-import { evaluateNodeCliArgs, writeNodeCliMessage } from "./src/server/node-cli.ts";
+import { getNodeRecipeAnalyzer } from "#runtime/node-analyzer.ts";
+import { startRecipeServer } from "#server/lsp-server.ts";
+import { evaluateNodeCliArgs, writeNodeCliMessage } from "#server/node-cli.ts";
 
 const cliArgs = argv.slice(2);
 const cliResult = evaluateNodeCliArgs(cliArgs);

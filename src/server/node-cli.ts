@@ -1,4 +1,4 @@
-import process from "node:process";
+import { stderr, stdout } from "node:process";
 
 interface CliExit {
 	kind: "exit";
@@ -99,8 +99,8 @@ function evaluateNodeCliArgs(args: readonly string[]): NodeCliResult {
 	if (args.some((arg) => HELP_FLAGS.has(arg))) {
 		return exitWith(usageText(), 0, "stdout");
 	}
-
 	const parsed = parseArgs(args);
+
 	if (parsed.badPort !== null) {
 		return exitWith(errorText(`Bad socket port: ${parsed.badPort}. Use 1-65535.`), 1, "stderr");
 	}
@@ -109,13 +109,9 @@ function evaluateNodeCliArgs(args: readonly string[]): NodeCliResult {
 		return exitWith(errorText(unknownArgumentMessage(parsed.unknownArgs)), 1, "stderr");
 	}
 
-	if (parsed.transportCount === 0) {
-		return exitWith(errorText("Missing transport flag."), 1, "stderr");
-	}
+	if (parsed.transportCount === 0) return exitWith(errorText("Missing transport flag."), 1, "stderr");
 
-	if (parsed.transportCount > 1) {
-		return exitWith(errorText("Choose exactly one transport flag."), 1, "stderr");
-	}
+	if (parsed.transportCount > 1) return exitWith(errorText("Choose exactly one transport flag."), 1, "stderr");
 
 	return { kind: "start" };
 }
@@ -123,10 +119,10 @@ function evaluateNodeCliArgs(args: readonly string[]): NodeCliResult {
 function writeNodeCliMessage(result: CliExit): void {
 	const output = `${result.message}\n`;
 	if (result.stream === "stdout") {
-		process.stdout.write(output);
+		stdout.write(output);
 		return;
 	}
-	process.stderr.write(output);
+	stderr.write(output);
 }
 
 type NodeCliResult = CliExit | CliStart;

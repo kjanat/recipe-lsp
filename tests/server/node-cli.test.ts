@@ -1,6 +1,6 @@
-import { describe, expect, test } from "bun:test";
-
 import { evaluateNodeCliArgs } from "#server/node-cli.ts";
+
+import { describe, expect, test } from "bun:test";
 
 describe("evaluateNodeCliArgs", () => {
 	test("prints help for --help", () => {

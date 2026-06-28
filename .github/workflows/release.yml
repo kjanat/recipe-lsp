@@ -6,7 +6,7 @@ jobs:
     runs-on: ubuntu-slim
     defaults: { run: { shell: pwsh } }
     steps: [
-      { uses: actions/checkout@v7, with: { sparse-checkout: . } },
+      uses: actions/checkout@v7,
       { uses: ./.github/actions/gate, with: { file1: jsr.json, file2: package.json }, id: v },
     ]
   ci: { uses: ./.github/workflows/ci.yml }

@@ -6,7 +6,7 @@ export interface ResolveBrowserWasmOptions {
 	/** WASM specifiers rewritten to `?url` imports. */
 	specifiers: readonly string[];
 	/** Which module id(s) to transform — glob string(s) or RegExp (rolldown's `transform` id filter). */
-	include: HookFilter["id"];
+	include: NonNullable<HookFilter["id"]>;
 }
 
 /**

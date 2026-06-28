@@ -6,7 +6,6 @@
 	"prettier": { "allowed": false },
 	"formatter": [
 		{ "language_server": { "name": "dprint" } },
-		// Fallback to the dprint CLI in case the lsp fucks up, which it does sometimes for some reason...
 		{ "external": { "command": "dprint", "arguments": ["fmt", "--stdin", "{buffer_path}"] } }
 	],
 	"languages": {
@@ -21,6 +20,14 @@
 			"settings": {
 				"config_path": "./biome.json",
 				"require_config_file": true
+			}
+		},
+		"recipe-lsp": {
+			"binary": {
+				// "path": "bun",
+				// "arguments": ["server.ts", "--stdio"]
+				"path": "node",
+				"arguments": ["dist/server.js", "--stdio"]
 			}
 		}
 	}
