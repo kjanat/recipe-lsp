@@ -88,31 +88,6 @@ new Worker("https://esm.sh/recipe-lsp/browser", { type: "module" });
 Inside a bundler (Vite/webpack/esbuild), import the worker the bundler's way; it
 will resolve the package export and emit the wasm as assets.
 
-## Local dev
-
-`tree-sitter-recipe` is a published dependency, so a plain install pulls the
-grammar (and its wasm) from the registry:
-
-```bash
-bun install
-```
-
-To develop against an unpublished local grammar, link the sibling checkout:
-
-```bash
-cd ../tree-sitter-recipe && bun link
-cd ../recipe-lsp && bun link tree-sitter-recipe
-```
-
-Common scripts:
-
-```bash
-bun lsp      # run the server from source over stdio (bun server.ts --stdio)
-bun bd       # build to dist/ via tsdown
-bun start    # build, then run dist/server.js --stdio
-bun test     # run the test suite
-```
-
 ## Notes
 
 - The server reparses the whole document on change. Recipe files are tiny;
