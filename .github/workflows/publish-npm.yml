@@ -16,4 +16,3 @@ jobs:
       - id: meta
         run: echo "url=https://npm.im/package/$(yq -r .name package.json)/v/$(yq -r .version package.json)" >> "$GITHUB_OUTPUT"
       - run: bunx npm@latest publish --provenance --access public --ignore-scripts
-        env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }

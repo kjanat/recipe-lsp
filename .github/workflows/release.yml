@@ -13,7 +13,6 @@ jobs:
   npm:
     needs: [gate, ci]
     uses: ./.github/workflows/publish-npm.yml
-    secrets: inherit
   jsr:
     needs: [gate, ci]
     uses: ./.github/workflows/publish-jsr.yml
