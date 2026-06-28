@@ -1,5 +1,8 @@
 # recipe-lsp
 
+[![NPM](https://img.shields.io/npm/v/recipe-lsp?logo=npm&labelColor=CB3837&color=black)][npm]
+[![JSR](https://img.shields.io/jsr/v/@kjanat/recipe-lsp?logoColor=083344&logo=jsr&logoSize=auto&label=&labelColor=f7df1e&color=black)][jsr]
+
 `recipe-lsp` is a Language Server Protocol implementation for the Recipe
 pharmacological notation language with two entrypoints:
 
@@ -100,3 +103,6 @@ bun test
   LSP UTF-16 positions so diagnostics and hovers stay correct on accented text.
 - Shared analysis code is browser-safe; only `server.ts` and
   `src/runtime/node-analyzer.ts` are Node-specific.
+
+[npm]: https://npm.im/recipe-lsp
+[jsr]: https://jsr.io/@kjanat/recipe-lsp
