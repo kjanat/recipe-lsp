@@ -93,7 +93,10 @@ function tokenTypeForNode(node: Node): SemanticTokenType | null {
 		case "rx_marker":
 		case "dispense_marker":
 		case "signa_marker":
-		case "frequency":
+		// `frequency` ("3 dd") is a container of `number` + `period`; tokenizing it
+		// would overlap the inner `number` span, so classify the `period` leaf
+		// instead and leave the container untyped.
+		case "period":
 		case "frequency_abbrev":
 		case "timing_abbrev":
 		case "conditional_abbrev":

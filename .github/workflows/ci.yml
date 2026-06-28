@@ -1,0 +1,19 @@
+name: CI
+on:
+  workflow_call: null
+  push: { branches: [master] }
+  pull_request: null
+permissions: { contents: read }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - run: bun run typecheck # tsc --noEmit over src + tests
+      - run: bun run check # biome check (lint + format)
+      - run: bun run lint # biome lint
+      - run: bun test
+      - run: bun run build # proves dist emits from both npm entries
+      - run: bunx jsr publish --dry-run # validates the jsr entry: resolution + slow-types

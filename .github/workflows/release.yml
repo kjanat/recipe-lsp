@@ -7,12 +7,13 @@ jobs:
     defaults: { run: { shell: pwsh } }
     steps: [
       { uses: actions/checkout@v7, with: { sparse-checkout: . } },
-      { run: "$p,$j='package.json','jsr.json'|%{jq .version $_};if($p-ne$j){'::error::version mismatch: {0} != {1}' -f $p, $j;exit 1}" },
+      { uses: ./.github/actions/gate, with: { file1: jsr.json, file2: package.json }, id: v },
     ]
+  ci: { uses: ./.github/workflows/ci.yml }
   npm:
-    needs: gate
+    needs: [gate, ci]
     uses: ./.github/workflows/publish-npm.yml
     secrets: inherit
   jsr:
-    needs: gate
+    needs: [gate, ci]
     uses: ./.github/workflows/publish-jsr.yml
