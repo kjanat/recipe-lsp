@@ -192,6 +192,12 @@ function wireRequests(state: ServerState): void {
 	});
 }
 
+/**
+ * Wire the document lifecycle and LSP request handlers — diagnostics, hover,
+ * completion, document symbols, folding ranges, selection ranges, and semantic
+ * tokens — onto `connection`, then start listening. `getAnalyzer` is awaited
+ * lazily on first use so the heavy parser is only loaded once a document opens.
+ */
 export function startRecipeServer(
 	connection: Connection,
 	getAnalyzer: () => Promise<RecipeAnalyzer>,

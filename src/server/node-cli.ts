@@ -1,131 +1,90 @@
-import { stderr, stdout } from "node:process";
+import { CLIError } from "@kjanat/dreamcli";
+import process, { stdin, stdout } from "node:process";
 
-interface CliExit {
-	kind: "exit";
-	code: 0 | 1;
-	message: string;
-	stream: "stdout" | "stderr";
-}
+import {
+	createConnection,
+	createServerSocketTransport,
+	IPCMessageReader,
+	IPCMessageWriter,
+	ProposedFeatures,
+} from "vscode-languageserver/node";
+import type { Connection } from "vscode-languageserver/node";
 
-interface CliStart {
-	kind: "start";
-}
-
-const HELP_FLAGS = new Set(["--help", "-h"]);
-const PORT_PATTERN = /^\d+$/u;
-const SOCKET_PREFIX = "--socket=";
+const MIN_PORT = 1;
 const MAX_PORT = 65_535;
 
-interface ParsedArgs {
-	transportCount: number;
-	unknownArgs: string[];
-	badPort: string | null;
+/** The transport a recipe-lsp server speaks. */
+export type Transport = "stdio" | "node-ipc" | "socket";
+
+/** A validated transport choice; `socket` always carries a resolved port. */
+export type ResolvedTransport =
+	| { readonly kind: "stdio" }
+	| { readonly kind: "node-ipc" }
+	| { readonly kind: "socket"; readonly port: number };
+
+/** Raw transport signals from the CLI: the positional arg plus the LSP-conventional flag aliases. */
+export interface TransportInput {
+	readonly arg: Transport | undefined;
+	readonly port: number | undefined;
+	readonly stdio: boolean;
+	readonly nodeIpc: boolean;
+	readonly socket: number | undefined;
 }
 
-function usageText(): string {
-	return [
-		"recipe-lsp",
-		"Recipe language server.",
-		"",
-		"Usage:",
-		"  recipe-lsp --stdio",
-		"  recipe-lsp --node-ipc",
-		"  recipe-lsp --socket=PORT",
-		"",
-		"Options:",
-		"  --stdio        Speak LSP over stdin/stdout.",
-		"  --node-ipc     Speak LSP over Node IPC.",
-		"  --socket=PORT  Speak LSP over a TCP socket.",
-		"  -h, --help     Show this help.",
-		"",
-		"Tip:",
-		"  This server needs one transport flag. Running it bare will fail.",
-	].join("\n");
-}
-
-function errorText(message: string): string {
-	return `${usageText()}\n\nError: ${message}`;
-}
-
-function exitWith(message: string, code: 0 | 1, stream: "stdout" | "stderr"): CliExit {
-	return { kind: "exit", code, message, stream };
-}
-
-function isSocketArg(arg: string): boolean {
-	return arg.startsWith(SOCKET_PREFIX);
-}
-
-function isValidPort(value: string): boolean {
-	if (!PORT_PATTERN.test(value)) {
-		return false;
+/**
+ * Normalise the positional transport and the LSP-conventional flag aliases
+ * (`--stdio`, `--node-ipc`, `--socket=PORT`) into a single {@link ResolvedTransport},
+ * defaulting to `stdio`. Throws a `CLIError` (rendered by dreamcli) when more than
+ * one transport is named, or a socket is chosen without a valid port.
+ */
+export function resolveTransport(input: TransportInput): ResolvedTransport {
+	const choices: { kind: Transport; port: number | undefined }[] = [];
+	if (input.arg !== undefined) {
+		choices.push({ kind: input.arg, port: input.arg === "socket" ? input.port : undefined });
 	}
-	const port = Number(value);
-	return Number.isSafeInteger(port) && port > 0 && port <= MAX_PORT;
+	if (input.stdio) {
+		choices.push({ kind: "stdio", port: undefined });
+	}
+	if (input.nodeIpc) {
+		choices.push({ kind: "node-ipc", port: undefined });
+	}
+	if (input.socket !== undefined) {
+		choices.push({ kind: "socket", port: input.socket });
+	}
+
+	if (choices.length > 1) {
+		throw new CLIError("Choose one transport — a positional (stdio/node-ipc/socket) or a flag alias, not several.", {
+			code: "AMBIGUOUS_TRANSPORT",
+		});
+	}
+
+	const chosen = choices[0] ?? { kind: "stdio", port: undefined };
+
+	if (chosen.kind !== "socket") {
+		return { kind: chosen.kind };
+	}
+
+	if (chosen.port === undefined) {
+		throw new CLIError("The socket transport needs a port: `recipe-lsp socket --port <port>` or `--socket=<port>`.", {
+			code: "MISSING_SOCKET_PORT",
+		});
+	}
+	if (!Number.isInteger(chosen.port) || chosen.port < MIN_PORT || chosen.port > MAX_PORT) {
+		throw new CLIError(`Bad socket port: ${chosen.port}. Use ${MIN_PORT}-${MAX_PORT}.`, { code: "BAD_SOCKET_PORT" });
+	}
+	return { kind: "socket", port: chosen.port };
 }
 
-function parseArgs(args: readonly string[]): ParsedArgs {
-	const parsed: ParsedArgs = {
-		transportCount: 0,
-		unknownArgs: [],
-		badPort: null,
-	};
-
-	for (const arg of args) {
-		if (arg === "--stdio" || arg === "--node-ipc") {
-			parsed.transportCount += 1;
-		} else if (isSocketArg(arg)) {
-			parsed.transportCount += 1;
-			const value = arg.slice(SOCKET_PREFIX.length);
-			if (!isValidPort(value)) {
-				parsed.badPort = value || "<empty>";
-			}
-		} else {
-			parsed.unknownArgs.push(arg);
+/** Build an LSP {@link Connection} bound to the resolved transport. */
+export function createLspConnection(transport: ResolvedTransport): Connection {
+	switch (transport.kind) {
+		case "stdio":
+			return createConnection(ProposedFeatures.all, stdin, stdout);
+		case "node-ipc":
+			return createConnection(ProposedFeatures.all, new IPCMessageReader(process), new IPCMessageWriter(process));
+		case "socket": {
+			const [reader, writer] = createServerSocketTransport(transport.port);
+			return createConnection(ProposedFeatures.all, reader, writer);
 		}
 	}
-
-	return parsed;
 }
-
-function unknownArgumentMessage(unknownArgs: readonly string[]): string {
-	const rendered = unknownArgs.map((arg) => `\`${arg}\``).join(", ");
-	if (unknownArgs.length === 1) {
-		return `Unknown argument: ${rendered}.`;
-	}
-	return `Unknown arguments: ${rendered}.`;
-}
-
-function evaluateNodeCliArgs(args: readonly string[]): NodeCliResult {
-	if (args.some((arg) => HELP_FLAGS.has(arg))) {
-		return exitWith(usageText(), 0, "stdout");
-	}
-	const parsed = parseArgs(args);
-
-	if (parsed.badPort !== null) {
-		return exitWith(errorText(`Bad socket port: ${parsed.badPort}. Use 1-65535.`), 1, "stderr");
-	}
-
-	if (parsed.unknownArgs.length > 0) {
-		return exitWith(errorText(unknownArgumentMessage(parsed.unknownArgs)), 1, "stderr");
-	}
-
-	if (parsed.transportCount === 0) return exitWith(errorText("Missing transport flag."), 1, "stderr");
-
-	if (parsed.transportCount > 1) return exitWith(errorText("Choose exactly one transport flag."), 1, "stderr");
-
-	return { kind: "start" };
-}
-
-function writeNodeCliMessage(result: CliExit): void {
-	const output = `${result.message}\n`;
-	if (result.stream === "stdout") {
-		stdout.write(output);
-		return;
-	}
-	stderr.write(output);
-}
-
-type NodeCliResult = CliExit | CliStart;
-
-export { evaluateNodeCliArgs, writeNodeCliMessage };
-export type { NodeCliResult };

@@ -91,6 +91,11 @@ export function semanticTokenLegend(): ReturnType<RecipeAnalyzer["semanticTokenL
 	return semanticTokenTypes();
 }
 
+/**
+ * Build a {@link RecipeAnalyzer} backed by an already-configured tree-sitter
+ * `Parser` (the recipe grammar must be loaded). The analyzer is pure — no I/O —
+ * and reuses the parser across {@link RecipeAnalyzer.analyzeRecipe} calls.
+ */
 export function createRecipeAnalyzer(parser: Parser): RecipeAnalyzer {
 	return {
 		analyzeRecipe: (text: string): RecipeAnalysis => analyzeWithParser(parser, text),
@@ -102,6 +107,11 @@ export function createRecipeAnalyzer(parser: Parser): RecipeAnalyzer {
 	};
 }
 
+/**
+ * The analysis of one recipe document: the original text and line index, the
+ * tree-sitter parse {@link Tree}, and the LSP features derived from it
+ * (diagnostics, document symbols, folding ranges, semantic tokens).
+ */
 export interface RecipeAnalysis {
 	text: string;
 	lines: string[];
@@ -112,6 +122,12 @@ export interface RecipeAnalysis {
 	semanticTokens: SemanticTokenSpan[];
 }
 
+/**
+ * Runtime-agnostic recipe analyzer: parses recipe text into a {@link RecipeAnalysis}
+ * and answers LSP feature requests (hover, completion, selection ranges) against it.
+ * Obtain one via {@link createRecipeAnalyzer}, or `getRecipeAnalyzer()` from the
+ * package entrypoint for an analyzer wired to the current runtime.
+ */
 export interface RecipeAnalyzer {
 	analyzeRecipe: (text: string) => RecipeAnalysis;
 	hoverForPosition: (analysis: RecipeAnalysis, position: Position) => Hover | null;

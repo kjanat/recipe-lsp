@@ -1,58 +1,46 @@
-import { evaluateNodeCliArgs } from "#server/node-cli.ts";
+import { type ResolvedTransport, resolveTransport, type TransportInput } from "#server/node-cli.ts";
 
 import { describe, expect, test } from "bun:test";
 
-describe("evaluateNodeCliArgs", () => {
-	test("prints help for --help", () => {
-		const result = evaluateNodeCliArgs(["--help"]);
-		expect(result).toMatchObject({ kind: "exit", code: 0, stream: "stdout" });
-		if (result.kind !== "exit") {
-			throw new Error("expected exit result");
-		}
-		expect(result.message).toContain("Usage:");
-		expect(result.message).toContain("--stdio");
+function resolve(overrides: Partial<TransportInput>): ResolvedTransport {
+	return resolveTransport({
+		arg: undefined,
+		port: undefined,
+		stdio: false,
+		nodeIpc: false,
+		socket: undefined,
+		...overrides,
+	});
+}
+
+describe("resolveTransport", () => {
+	test("defaults to stdio when nothing is given", () => {
+		expect(resolve({})).toEqual({ kind: "stdio" });
 	});
 
-	test("rejects missing transport", () => {
-		const result = evaluateNodeCliArgs([]);
-		expect(result).toMatchObject({ kind: "exit", code: 1, stream: "stderr" });
-		if (result.kind !== "exit") {
-			throw new Error("expected exit result");
-		}
-		expect(result.message).toContain("Missing transport flag");
+	test("resolves the positional transport", () => {
+		expect(resolve({ arg: "stdio" })).toEqual({ kind: "stdio" });
+		expect(resolve({ arg: "node-ipc" })).toEqual({ kind: "node-ipc" });
+		expect(resolve({ arg: "socket", port: 2087 })).toEqual({ kind: "socket", port: 2087 });
 	});
 
-	test("rejects unknown args", () => {
-		const result = evaluateNodeCliArgs(["--wat"]);
-		expect(result).toMatchObject({ kind: "exit", code: 1, stream: "stderr" });
-		if (result.kind !== "exit") {
-			throw new Error("expected exit result");
-		}
-		expect(result.message).toContain("Unknown argument");
-		expect(result.message).toContain("`--wat`");
+	test("resolves the LSP-conventional flag aliases", () => {
+		expect(resolve({ stdio: true })).toEqual({ kind: "stdio" });
+		expect(resolve({ nodeIpc: true })).toEqual({ kind: "node-ipc" });
+		expect(resolve({ socket: 2087 })).toEqual({ kind: "socket", port: 2087 });
 	});
 
-	test("rejects bad socket ports", () => {
-		const result = evaluateNodeCliArgs(["--socket=nope"]);
-		expect(result).toMatchObject({ kind: "exit", code: 1, stream: "stderr" });
-		if (result.kind !== "exit") {
-			throw new Error("expected exit result");
-		}
-		expect(result.message).toContain("Bad socket port");
+	test("requires a port for the socket transport", () => {
+		expect(() => resolve({ arg: "socket" })).toThrow("needs a port");
 	});
 
-	test("rejects multiple transports", () => {
-		const result = evaluateNodeCliArgs(["--stdio", "--node-ipc"]);
-		expect(result).toMatchObject({ kind: "exit", code: 1, stream: "stderr" });
-		if (result.kind !== "exit") {
-			throw new Error("expected exit result");
-		}
-		expect(result.message).toContain("Choose exactly one transport flag");
+	test("rejects an out-of-range socket port", () => {
+		expect(() => resolve({ socket: 99999 })).toThrow("Bad socket port");
+		expect(() => resolve({ arg: "socket", port: 0 })).toThrow("Bad socket port");
 	});
 
-	test("accepts supported transports", () => {
-		expect(evaluateNodeCliArgs(["--stdio"])).toEqual({ kind: "start" });
-		expect(evaluateNodeCliArgs(["--node-ipc"])).toEqual({ kind: "start" });
-		expect(evaluateNodeCliArgs(["--socket=3000"])).toEqual({ kind: "start" });
+	test("rejects naming more than one transport", () => {
+		expect(() => resolve({ arg: "node-ipc", stdio: true })).toThrow("Choose one transport");
+		expect(() => resolve({ stdio: true, socket: 2087 })).toThrow("Choose one transport");
 	});
 });
