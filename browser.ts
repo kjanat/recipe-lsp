@@ -1,4 +1,3 @@
-/// <reference lib="WebWorker" />
 import { BrowserMessageReader, BrowserMessageWriter, createConnection } from "vscode-languageserver/browser.js";
 
 import { getBrowserRecipeAnalyzer } from "./src/runtime/browser-analyzer.ts";
