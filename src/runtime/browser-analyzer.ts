@@ -18,24 +18,25 @@ interface BrowserAnalyzerBootstrap<LanguageType, AnalyzerType, SourceType = Lang
 	createAnalyzer: (language: LanguageType) => AnalyzerType;
 }
 
-async function compileLanguageModule(url: string): Promise<WebAssembly.Module> {
+// Fetch the grammar as raw bytes and let `Language.load` compile them. We pass a
+// `Uint8Array` (accepted by every released web-tree-sitter) rather than a
+// precompiled `WebAssembly.Module` — that needs `Language.loadSync`, which is on
+// upstream master but not yet in a release.
+// TODO(#1): switch to a precompiled module + `Language.loadSync(module)` (restoring
+// streaming compilation) once web-tree-sitter ships `loadSync` in a release.
+async function fetchLanguageBytes(url: string): Promise<Uint8Array> {
 	const response = await fetch(url);
 	if (!response.ok) {
 		const body = await response.text();
-		throw new Error(`Language module fetch failed with status ${response.status}.\n\n${body}`);
+		throw new Error(`Language wasm fetch failed with status ${response.status}.\n\n${body}`);
 	}
 
-	const retryResponse = response.clone();
-	try {
-		return await WebAssembly.compileStreaming(response);
-	} catch {
-		return WebAssembly.compile(await retryResponse.arrayBuffer());
-	}
+	return new Uint8Array(await response.arrayBuffer());
 }
 
 const browserAnalyzerBootstrap: BrowserAnalyzerBootstrap<BrowserLanguage, RecipeAnalyzer, LanguageSource> = {
 	initRuntime: (locateFile: (scriptName: string) => string) => Parser.init({ locateFile }),
-	resolveLanguageSource: (url: string) => compileLanguageModule(url),
+	resolveLanguageSource: (url: string) => fetchLanguageBytes(url),
 	loadLanguage: (source: LanguageSource) => Language.load(source),
 	createAnalyzer: (language: BrowserLanguage) => {
 		const parser = new Parser();
