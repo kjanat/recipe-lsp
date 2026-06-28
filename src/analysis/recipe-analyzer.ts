@@ -2,15 +2,25 @@ import {
 	type CompletionItem,
 	type Diagnostic,
 	type DocumentSymbol,
+	type FoldingRange,
 	type Hover,
 	MarkupKind,
 	type Position,
+	type SelectionRange,
 } from "vscode-languageserver";
 import type { Node, Parser, Tree } from "web-tree-sitter";
 
-import { completionItems as vocabularyCompletionItems } from "#vocab/completions.ts";
+import { completionItems as vocabularyCompletionItems, completionsForContext } from "#vocab/completions.ts";
 import { hoverInfoForNode } from "#vocab/hover.ts";
 import { buildSymbols, collectSectionDiagnostics, collectSyntaxDiagnostics } from "./diagnostics.ts";
+import {
+	buildFoldingRanges,
+	buildSelectionRanges,
+	buildSemanticTokenSpans,
+	completionContextAt,
+	type SemanticTokenSpan,
+	semanticTokenTypes,
+} from "./lsp-features.ts";
 import { splitLines, toPoint, toRange } from "./lsp-positions.ts";
 
 function analyzeWithParser(parser: Parser, text: string): RecipeAnalysis {
@@ -30,6 +40,8 @@ function analyzeWithParser(parser: Parser, text: string): RecipeAnalysis {
 			...collectSectionDiagnostics(lines, root),
 		],
 		symbols: buildSymbols(lines, root),
+		foldingRanges: buildFoldingRanges(lines, root),
+		semanticTokens: buildSemanticTokenSpans(lines, root),
 	};
 }
 
@@ -65,11 +77,30 @@ export function completionItems(): CompletionItem[] {
 	return vocabularyCompletionItems();
 }
 
+export function completionsAt(analysis: RecipeAnalysis, position: Position): CompletionItem[] {
+	const context = completionContextAt(analysis.lines, analysis.tree.rootNode, position);
+	return completionsForContext(context);
+}
+
+export function selectionRanges(
+	analysis: RecipeAnalysis,
+	positions: readonly Position[],
+): SelectionRange[] {
+	return buildSelectionRanges(analysis.lines, analysis.tree.rootNode, positions);
+}
+
+export function semanticTokenLegend(): readonly string[] {
+	return semanticTokenTypes();
+}
+
 export function createRecipeAnalyzer(parser: Parser): RecipeAnalyzer {
 	return {
 		analyzeRecipe: (text: string): RecipeAnalysis => analyzeWithParser(parser, text),
 		hoverForPosition,
 		completionItems,
+		completionsAt,
+		selectionRanges,
+		semanticTokenLegend,
 	};
 }
 
@@ -79,10 +110,15 @@ export interface RecipeAnalysis {
 	tree: Tree;
 	diagnostics: Diagnostic[];
 	symbols: DocumentSymbol[];
+	foldingRanges: FoldingRange[];
+	semanticTokens: SemanticTokenSpan[];
 }
 
 export interface RecipeAnalyzer {
 	analyzeRecipe: (text: string) => RecipeAnalysis;
 	hoverForPosition: (analysis: RecipeAnalysis, position: Position) => Hover | null;
 	completionItems: () => CompletionItem[];
+	completionsAt: (analysis: RecipeAnalysis, position: Position) => CompletionItem[];
+	selectionRanges: (analysis: RecipeAnalysis, positions: readonly Position[]) => SelectionRange[];
+	semanticTokenLegend: () => readonly string[];
 }

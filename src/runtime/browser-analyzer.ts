@@ -4,20 +4,35 @@ import runtimeWasmUrl from "web-tree-sitter/web-tree-sitter.wasm?url";
 
 import { createRecipeAnalyzer, type RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
 
-const recipeWasmAsset = new URL(recipeWasmUrl, import.meta.url);
-
 type BrowserLanguage = Awaited<ReturnType<typeof Language.load>>;
-const isNodeRuntime = recipeWasmAsset.protocol === "file:";
+type LanguageSource = Parameters<typeof Language.load>[0];
 
-interface BrowserAnalyzerBootstrap<LanguageType, AnalyzerType> {
+interface BrowserAnalyzerBootstrap<LanguageType, AnalyzerType, SourceType = LanguageSource> {
 	initRuntime: (locateFile: (scriptName: string) => string) => Promise<void>;
-	loadLanguage: (url: string) => Promise<LanguageType>;
+	resolveLanguageSource: (url: string) => Promise<SourceType>;
+	loadLanguage: (source: SourceType) => Promise<LanguageType>;
 	createAnalyzer: (language: LanguageType) => AnalyzerType;
 }
 
-const browserAnalyzerBootstrap: BrowserAnalyzerBootstrap<BrowserLanguage, RecipeAnalyzer> = {
+async function compileLanguageModule(url: string): Promise<WebAssembly.Module> {
+	const response = await fetch(url);
+	if (!response.ok) {
+		const body = await response.text();
+		throw new Error(`Language module fetch failed with status ${response.status}.\n\n${body}`);
+	}
+
+	const retryResponse = response.clone();
+	try {
+		return await WebAssembly.compileStreaming(response);
+	} catch {
+		return WebAssembly.compile(await retryResponse.arrayBuffer());
+	}
+}
+
+const browserAnalyzerBootstrap: BrowserAnalyzerBootstrap<BrowserLanguage, RecipeAnalyzer, LanguageSource> = {
 	initRuntime: (locateFile: (scriptName: string) => string) => Parser.init({ locateFile }),
-	loadLanguage: (url: string) => Language.load(url),
+	resolveLanguageSource: (url: string) => compileLanguageModule(url),
+	loadLanguage: (source: LanguageSource) => Language.load(source),
 	createAnalyzer: (language: BrowserLanguage) => {
 		const parser = new Parser();
 		parser.setLanguage(language);
@@ -25,15 +40,8 @@ const browserAnalyzerBootstrap: BrowserAnalyzerBootstrap<BrowserLanguage, Recipe
 	},
 };
 
-function recipeWasmLocation(): string {
-	if (isNodeRuntime) {
-		return recipeWasmAsset.pathname;
-	}
-	return recipeWasmAsset.toString();
-}
-
-async function createBrowserRecipeAnalyzerWith<LanguageType, AnalyzerType>(
-	bootstrap: BrowserAnalyzerBootstrap<LanguageType, AnalyzerType>,
+async function createBrowserRecipeAnalyzerWith<LanguageType, AnalyzerType, SourceType>(
+	bootstrap: BrowserAnalyzerBootstrap<LanguageType, AnalyzerType, SourceType>,
 ): Promise<AnalyzerType> {
 	await bootstrap.initRuntime((scriptName: string): string => {
 		if (
@@ -46,18 +54,21 @@ async function createBrowserRecipeAnalyzerWith<LanguageType, AnalyzerType>(
 		return scriptName;
 	});
 
-	const language = await bootstrap.loadLanguage(recipeWasmLocation());
+	const languageSource = await bootstrap.resolveLanguageSource(recipeWasmUrl);
+	const language = await bootstrap.loadLanguage(languageSource);
 	return bootstrap.createAnalyzer(language);
-}
-
-function createBrowserRecipeAnalyzer(): Promise<RecipeAnalyzer> {
-	return createBrowserRecipeAnalyzerWith(browserAnalyzerBootstrap);
 }
 
 let analyzerPromise: Promise<RecipeAnalyzer> | undefined;
 
-function getBrowserRecipeAnalyzer(): Promise<RecipeAnalyzer> {
-	analyzerPromise ??= createBrowserRecipeAnalyzer();
+function getBrowserRecipeAnalyzer<LanguageType, SourceType>(
+	bootstrap?: BrowserAnalyzerBootstrap<LanguageType, RecipeAnalyzer, SourceType>,
+): Promise<RecipeAnalyzer>;
+function getBrowserRecipeAnalyzer(
+	bootstrap?: BrowserAnalyzerBootstrap<BrowserLanguage, RecipeAnalyzer, LanguageSource>,
+): Promise<RecipeAnalyzer> {
+	const effectiveBootstrap = bootstrap ?? browserAnalyzerBootstrap;
+	analyzerPromise ??= createBrowserRecipeAnalyzerWith(effectiveBootstrap);
 	return analyzerPromise;
 }
 

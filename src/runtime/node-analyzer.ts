@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-// biome-ignore lint/correctness/noUnresolvedImports: Biome misreads `web-tree-sitter` exports here; ts/bun/runtime agree.
 import { Language, Parser } from "web-tree-sitter";
 
 import { createRecipeAnalyzer, type RecipeAnalyzer } from "#anal/recipe-analyzer.ts";

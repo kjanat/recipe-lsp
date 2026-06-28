@@ -1,0 +1,19 @@
+name: Publish to NPM
+on: { workflow_call: null }
+jobs:
+  publish:
+    name: Publish recipe-lsp
+    runs-on: ubuntu-latest
+    permissions: { contents: read, id-token: write }
+    environment: { name: npm, url: "${{ steps.meta.outputs.url }}" }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v6
+        with: { node-version: latest, registry-url: https://registry.npmjs.org }
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - run: bun run build
+      - id: meta
+        run: echo "url=https://npm.im/package/$(yq -r .name package.json)/v/$(yq -r .version package.json)" >> "$GITHUB_OUTPUT"
+      - run: bunx npm@latest publish --provenance --access public --ignore-scripts
+        env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }

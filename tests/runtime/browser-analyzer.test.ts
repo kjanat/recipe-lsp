@@ -1,17 +1,53 @@
 import { describe, expect, test } from "bun:test";
 
+import type { RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
+
 const stubLocateFiles: string[] = [];
 const stubLanguageLoads: unknown[] = [];
 
 const stubLanguagesSeenByAnalyzer: unknown[] = [];
+// biome-ignore lint/style/noMagicNumbers: canonical empty wasm header bytes.
+const WASM_MAGIC = [0, 97, 115, 109] as const;
+const WASM_VERSION = [1, 0, 0, 0] as const;
+const MINIMAL_WASM = Uint8Array.from([...WASM_MAGIC, ...WASM_VERSION]);
+
+interface MemoizedAnalyzerBootstrap {
+	initRuntime: () => Promise<void>;
+	resolveLanguageSource: () => Promise<WebAssembly.Module>;
+	loadLanguage: () => Promise<{ language: true }>;
+	createAnalyzer: () => RecipeAnalyzer;
+}
 
 function loadBrowserAnalyzerModule(): Promise<typeof import("#runtime/browser-analyzer.ts")> {
 	return import("#runtime/browser-analyzer.ts");
 }
 
+function compileEmptyModule(): Promise<WebAssembly.Module> {
+	return WebAssembly.compile(MINIMAL_WASM);
+}
+
+function createMemoizedAnalyzerBootstrap(compiledModule: WebAssembly.Module): MemoizedAnalyzerBootstrap {
+	return {
+		initRuntime: (): Promise<void> => Promise.resolve(),
+		resolveLanguageSource: (): Promise<WebAssembly.Module> => Promise.resolve(compiledModule),
+		loadLanguage: (): Promise<{ language: true }> => Promise.resolve({ language: true }),
+		createAnalyzer: (): RecipeAnalyzer => ({
+			analyzeRecipe: (): never => {
+				throw new Error("unused in memoization test");
+			},
+			hoverForPosition: (): null => null,
+			completionItems: (): never[] => [],
+			completionsAt: (): never[] => [],
+			selectionRanges: (): never[] => [],
+			semanticTokenLegend: (): readonly string[] => [],
+		}),
+	};
+}
+
 describe("browser analyzer factory", () => {
 	test("constructs an analyzer using URL-based wasm loading", async () => {
 		const { createBrowserRecipeAnalyzerWith } = await loadBrowserAnalyzerModule();
+		const compiledModule = await compileEmptyModule();
 
 		const analyzer = await createBrowserRecipeAnalyzerWith({
 			initRuntime: (locateFile: (scriptName: string) => string): Promise<void> => {
@@ -20,7 +56,13 @@ describe("browser analyzer factory", () => {
 				stubLocateFiles.push(locateFile("other.wasm"));
 				return Promise.resolve();
 			},
-			loadLanguage: (input: string): Promise<{ stub: true }> => {
+			resolveLanguageSource: (input: string): Promise<WebAssembly.Module> => {
+				stubLanguageLoads.push(input);
+				return Promise.resolve(compiledModule);
+			},
+			loadLanguage: (
+				input: string | Uint8Array | WebAssembly.Module,
+			): Promise<{ stub: true }> => {
 				stubLanguageLoads.push(input);
 				return Promise.resolve({ stub: true });
 			},
@@ -33,9 +75,13 @@ describe("browser analyzer factory", () => {
 						tree: { rootNode: { namedDescendantForPosition: () => null } },
 						diagnostics: [],
 						symbols: [],
+						foldingRanges: [],
+						semanticTokens: [],
 					}),
 					hoverForPosition: () => null,
 					completionItems: () => [],
+					selectionRanges: () => [],
+					semanticTokenLegend: () => [],
 				};
 			},
 		});
@@ -45,15 +91,18 @@ describe("browser analyzer factory", () => {
 
 		expect(stubLocateFiles.some((entry) => entry.endsWith("tree-sitter.wasm"))).toBe(true);
 		expect(stubLocateFiles.some((entry) => entry === "other.wasm")).toBe(true);
-		expect(stubLanguageLoads.length).toBeGreaterThan(0);
+		expect(stubLanguageLoads.length).toBeGreaterThan(1);
 		expect(typeof stubLanguageLoads[0]).toBe("string");
+		expect(typeof stubLanguageLoads[1]).toBe("object");
 		expect(stubLanguagesSeenByAnalyzer).toHaveLength(1);
 	});
 
 	test("memoizes the analyzer across calls", async () => {
 		const { getBrowserRecipeAnalyzer } = await loadBrowserAnalyzerModule();
-		const a = await getBrowserRecipeAnalyzer();
-		const b = await getBrowserRecipeAnalyzer();
+		const compiledModule = await compileEmptyModule();
+		const bootstrap = createMemoizedAnalyzerBootstrap(compiledModule);
+		const a = await getBrowserRecipeAnalyzer(bootstrap);
+		const b = await getBrowserRecipeAnalyzer(bootstrap);
 		expect(a).toBe(b);
 	});
 });

@@ -1,0 +1,14 @@
+{
+	"$schema": "https://jsr.io/schema/config-file.v1.json",
+	"name": "@kjanat/recipe-lsp",
+	"version": "0.1.0",
+	"license": "MIT",
+	"exports": {
+		".": "./dist/server.mjs",
+		"./browser": "./dist/browser.js"
+	},
+	"publish": {
+		"include": ["dist/**", "LICENSE", "README.md", "jsr.json"],
+		"exclude": ["!dist"]
+	}
+}

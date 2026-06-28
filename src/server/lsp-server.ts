@@ -1,4 +1,11 @@
-import { type Connection, type InitializeResult, TextDocuments, TextDocumentSyncKind } from "vscode-languageserver";
+import {
+	type Connection,
+	type InitializeResult,
+	type SemanticTokens,
+	SemanticTokensBuilder,
+	TextDocuments,
+	TextDocumentSyncKind,
+} from "vscode-languageserver";
 import { TextDocument } from "vscode-languageserver-textdocument";
 
 import type { RecipeAnalysis, RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
@@ -45,16 +52,45 @@ function publishDiagnostics(state: ServerState, document: TextDocument): void {
 	});
 }
 
-const SERVER_CAPABILITIES: InitializeResult = {
-	capabilities: {
-		textDocumentSync: TextDocumentSyncKind.Incremental,
-		documentSymbolProvider: true,
-		hoverProvider: true,
-		completionProvider: {
-			triggerCharacters: ["/", "."],
+function buildSemanticTokens(spans: RecipeAnalysis["semanticTokens"]): SemanticTokens {
+	const builder = new SemanticTokensBuilder();
+	for (const token of spans) {
+		builder.push(
+			token.line,
+			token.character,
+			token.length,
+			token.tokenType,
+			token.tokenModifiers,
+		);
+	}
+	return builder.build();
+}
+
+function emptySemanticTokens(): SemanticTokens {
+	return { data: [] };
+}
+
+function serverCapabilities(analyzer: RecipeAnalyzer): InitializeResult {
+	return {
+		capabilities: {
+			textDocumentSync: TextDocumentSyncKind.Incremental,
+			documentSymbolProvider: true,
+			hoverProvider: true,
+			foldingRangeProvider: true,
+			selectionRangeProvider: true,
+			semanticTokensProvider: {
+				full: true,
+				legend: {
+					tokenTypes: [...analyzer.semanticTokenLegend()],
+					tokenModifiers: [],
+				},
+			},
+			completionProvider: {
+				triggerCharacters: ["/", "."],
+			},
 		},
-	},
-};
+	};
+}
 
 function wireDocumentEvents(state: ServerState): void {
 	state.documents.onDidOpen((event) => {
@@ -71,8 +107,7 @@ function wireDocumentEvents(state: ServerState): void {
 
 function wireRequests(state: ServerState): void {
 	state.connection.onInitialize(async (): Promise<InitializeResult> => {
-		await state.getAnalyzer();
-		return SERVER_CAPABILITIES;
+		return serverCapabilities(await state.getAnalyzer());
 	});
 
 	state.connection.onInitialized(() => {
@@ -96,7 +131,39 @@ function wireRequests(state: ServerState): void {
 		return analyzer.hoverForPosition(await getAnalysis(state, document), params.position);
 	});
 
-	state.connection.onCompletion(async () => (await state.getAnalyzer()).completionItems());
+	state.connection.onCompletion(async (params) => {
+		const analyzer = await state.getAnalyzer();
+		const document = state.documents.get(params.textDocument.uri);
+		if (!document) {
+			return analyzer.completionItems();
+		}
+		return analyzer.completionsAt(await getAnalysis(state, document), params.position);
+	});
+
+	state.connection.onFoldingRanges(async (params) => {
+		const document = state.documents.get(params.textDocument.uri);
+		if (!document) {
+			return [];
+		}
+		return (await getAnalysis(state, document)).foldingRanges;
+	});
+
+	state.connection.onSelectionRanges(async (params) => {
+		const document = state.documents.get(params.textDocument.uri);
+		if (!document) {
+			return [];
+		}
+		const analyzer = await state.getAnalyzer();
+		return analyzer.selectionRanges(await getAnalysis(state, document), params.positions);
+	});
+
+	state.connection.languages.semanticTokens.on(async (params) => {
+		const document = state.documents.get(params.textDocument.uri);
+		if (!document) {
+			return emptySemanticTokens();
+		}
+		return buildSemanticTokens((await getAnalysis(state, document)).semanticTokens);
+	});
 }
 
 export function startRecipeServer(

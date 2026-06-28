@@ -13,7 +13,6 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true,
 			"complexity": "on",
 			"correctness": "on",
 			"nursery": "on",
@@ -30,12 +29,19 @@
 	"javascript": {},
 	"overrides": [
 		{
-			"includes": ["server.ts", "src/server/node-cli.ts", "src/runtime/node-analyzer.ts"],
+			"includes": [
+				"server.ts",
+				"src/server/node-cli.ts",
+				"src/runtime/node-analyzer.ts",
+				"tsdown.config.ts",
+				"tests/smoke/**/*.ts"
+			],
 			"linter": {
 				"rules": {
 					"correctness": {
 						"noNodejsModules": "off",
-						"noProcessGlobal": "off"
+						"noProcessGlobal": "off",
+						"noUnresolvedImports": "off"
 					}
 				}
 			}

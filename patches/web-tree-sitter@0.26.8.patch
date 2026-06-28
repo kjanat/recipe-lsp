@@ -1,0 +1,53 @@
+diff --git a/web-tree-sitter.d.cts b/web-tree-sitter.d.cts
+index 2c342e7d15a8c2cc0ba56502ff2826b255407614..2c90aefa86a00e297481a479e08ee3d11b5791c7 100644
+--- a/web-tree-sitter.d.cts
++++ b/web-tree-sitter.d.cts
+@@ -312,9 +312,10 @@ declare module 'web-tree-sitter' {
+ 		lookaheadIterator(stateId: number): LookaheadIterator | null;
+ 		/**
+ 		 * Load a language from a WebAssembly module.
+-		 * The module can be provided as a path to a file or as a buffer.
++		 * The module can be provided as a path to a file, as a buffer, or as a
++		 * precompiled `WebAssembly.Module`.
+ 		 */
+-		static load(input: string | Uint8Array): Promise<Language>;
++		static load(input: string | Uint8Array | WebAssembly.Module): Promise<Language>;
+ 	}
+ 	/** A tree that represents the syntactic structure of a source code file. */
+ 	export class Tree {
+diff --git a/web-tree-sitter.d.ts b/web-tree-sitter.d.ts
+index 7adacefdfcd1370af367cac02b3f6a7d08454802..8645a76420477007252bfb2db8a00fd18462f257 100644
+--- a/web-tree-sitter.d.ts
++++ b/web-tree-sitter.d.ts
+@@ -312,9 +312,10 @@ declare module 'web-tree-sitter' {
+ 		lookaheadIterator(stateId: number): LookaheadIterator | null;
+ 		/**
+ 		 * Load a language from a WebAssembly module.
+-		 * The module can be provided as a path to a file or as a buffer.
++		 * The module can be provided as a path to a file, as a buffer, or as a
++		 * precompiled `WebAssembly.Module`.
+ 		 */
+-		static load(input: string | Uint8Array): Promise<Language>;
++		static load(input: string | Uint8Array | WebAssembly.Module): Promise<Language>;
+ 	}
+ 	/** A tree that represents the syntactic structure of a source code file. */
+ 	export class Tree {
+diff --git a/web-tree-sitter.js b/web-tree-sitter.js
+index 449545cbe28eabba64252ea5097a7d8f0a686ba8..4da576687f85cffbe27bcea42c52609fcc946404 100644
+--- a/web-tree-sitter.js
++++ b/web-tree-sitter.js
+@@ -1477,11 +1477,12 @@ var Language = class _Language {
+   }
+   /**
+    * Load a language from a WebAssembly module.
+-   * The module can be provided as a path to a file or as a buffer.
++   * The module can be provided as a path to a file, as a buffer, or as a
++   * precompiled `WebAssembly.Module`.
+    */
+   static async load(input) {
+     let binary2;
+-    if (input instanceof Uint8Array) {
++    if (input instanceof Uint8Array || input instanceof WebAssembly.Module) {
+       binary2 = input;
+     } else if (globalThis.process?.versions.node) {
+       const fs2 = await import("fs/promises");

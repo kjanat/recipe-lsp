@@ -48,4 +48,5 @@ dist/browser.js via Worker
 - Do not map tree-sitter byte columns directly to LSP character offsets.
 - Do not add completion vocab here that is absent upstream.
 - Do not reintroduce Bun-only runtime assumptions; shipping target is Node.
-- Do not import `vscode-languageserver/node` anywhere shared with the browser build.
+- Do not import `vscode-languageserver/node` anywhere shared with the browser
+  build.

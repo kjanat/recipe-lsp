@@ -1,0 +1,18 @@
+name: Release
+on: { push: { tags: ["v*"] }, workflow_dispatch: null }
+permissions: { contents: read, id-token: write }
+jobs:
+  gate:
+    runs-on: ubuntu-slim
+    defaults: { run: { shell: pwsh } }
+    steps: [
+      { uses: actions/checkout@v7, with: { sparse-checkout: . } },
+      { run: "$p,$j='package.json','jsr.json'|%{jq .version $_};if($p-ne$j){'::error::version mismatch: {0} != {1}' -f $p, $j;exit 1}" },
+    ]
+  npm:
+    needs: gate
+    uses: ./.github/workflows/publish-npm.yml
+    secrets: inherit
+  jsr:
+    needs: gate
+    uses: ./.github/workflows/publish-jsr.yml

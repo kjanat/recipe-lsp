@@ -2,7 +2,15 @@ import type { RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
 import { createLspTestHarness, type LspTestHarness } from "#testsupport/lsp-harness.ts";
 import { describe, expect, mock, test } from "bun:test";
 import type { NotificationMessage, ResponseMessage } from "vscode-jsonrpc";
-import type { DocumentSymbol, Hover, InitializeResult, PublishDiagnosticsParams } from "vscode-languageserver";
+import type {
+	DocumentSymbol,
+	FoldingRange,
+	Hover,
+	InitializeResult,
+	PublishDiagnosticsParams,
+	SelectionRange,
+	SemanticTokens,
+} from "vscode-languageserver";
 
 mock.restore();
 
@@ -20,6 +28,12 @@ const REQUEST_DOCUMENT_SYMBOL_MISSING = 111;
 const REQUEST_HOVER = 120;
 const REQUEST_HOVER_MISSING = 121;
 const REQUEST_COMPLETION = 130;
+const REQUEST_COMPLETION_CONTEXT = 131;
+const REQUEST_FOLDING_RANGE = 140;
+const REQUEST_SELECTION_RANGE = 150;
+const REQUEST_SELECTION_RANGE_MISSING = 151;
+const REQUEST_SEMANTIC_TOKENS = 160;
+const REQUEST_SEMANTIC_TOKENS_MISSING = 161;
 
 const VALID_RECIPE = "R/ a 1mg\nS/ take 1";
 const SECTION_ORDER_BAD_RECIPE = "S/ take 1\nR/ a 1mg";
@@ -97,6 +111,33 @@ function completionLabels(response: ResponseMessage): unknown[] {
 	return labels;
 }
 
+function foldingRangesResult(response: ResponseMessage): FoldingRange[] {
+	if (!Array.isArray(response.result)) {
+		throw new Error("expected folding range result");
+	}
+	return response.result;
+}
+
+function selectionRangesResult(response: ResponseMessage): SelectionRange[] {
+	if (!Array.isArray(response.result)) {
+		throw new Error("expected selection range result");
+	}
+	return response.result;
+}
+
+function semanticTokensResult(response: ResponseMessage): SemanticTokens {
+	const { result } = response;
+	if (
+		typeof result !== "object"
+		|| result === null
+		|| !("data" in result)
+		|| !Array.isArray(result.data)
+	) {
+		throw new Error("expected semantic tokens result");
+	}
+	return result as SemanticTokens;
+}
+
 async function nextDiagnosticsFor(
 	harness: LspTestHarness,
 	uri: string,
@@ -123,7 +164,10 @@ describe("startRecipeServer initialization", () => {
 		expect(initializeCapabilities(response)).toMatchObject({
 			documentSymbolProvider: true,
 			hoverProvider: true,
+			foldingRangeProvider: true,
+			selectionRangeProvider: true,
 		});
+		expect(initializeCapabilities(response)).toHaveProperty("semanticTokensProvider.legend.tokenTypes");
 	});
 
 	test("logs ready on initialized notification", async () => {
@@ -256,14 +300,121 @@ describe("startRecipeServer requests", () => {
 });
 
 describe("startRecipeServer completion", () => {
-	test("answers completion requests with the static completion list", async () => {
+	test("falls back to the full vocabulary for an unopened document", async () => {
 		const h = createLspTestHarness(getNodeRecipeAnalyzer);
 		h.request(REQUEST_COMPLETION, "textDocument/completion", {
 			textDocument: { uri: "file:///c.recipe" },
 			position: { line: 0, character: 0 },
 		});
 		const response = await h.awaitResponse(REQUEST_COMPLETION);
-		expect(completionLabels(response)).toContain("R/");
+		const labels = completionLabels(response);
+		expect(labels).toContain("R/");
+		expect(labels).toContain("mg");
+	});
+
+	test("tailors completions to the parse context of an open document", async () => {
+		const h = createLspTestHarness(getNodeRecipeAnalyzer);
+		const uri = "file:///ctx.recipe";
+		const source = "R/ amoxicilline 500 ";
+		const before = h.cursor();
+		h.notify("textDocument/didOpen", {
+			textDocument: { uri, languageId: "recipe", version: 1, text: source },
+		});
+		await nextDiagnosticsFor(h, uri, before);
+
+		h.request(REQUEST_COMPLETION_CONTEXT, "textDocument/completion", {
+			textDocument: { uri },
+			position: { line: 0, character: source.length },
+		});
+		const response = await h.awaitResponse(REQUEST_COMPLETION_CONTEXT);
+		const labels = completionLabels(response);
+		// Right after a dose number: units are offered, bare section markers are not.
+		expect(labels).toContain("mg");
+		expect(labels).not.toContain("R/");
+	});
+});
+
+describe("startRecipeServer single-document extras", () => {
+	test("answers folding range requests", async () => {
+		const h = createLspTestHarness(getNodeRecipeAnalyzer);
+		const uri = "file:///fold.recipe";
+		const before = h.cursor();
+		h.notify("textDocument/didOpen", {
+			textDocument: { uri, languageId: "recipe", version: 1, text: "R/ a 1mg\nb 2mg\nS/ take 1" },
+		});
+		await nextDiagnosticsFor(h, uri, before);
+
+		h.request(REQUEST_FOLDING_RANGE, "textDocument/foldingRange", {
+			textDocument: { uri },
+		});
+		const response = await h.awaitResponse(REQUEST_FOLDING_RANGE);
+		expect(foldingRangesResult(response)).toContainEqual({
+			startLine: 0,
+			endLine: 1,
+			kind: "region",
+		});
+	});
+
+	test("answers selection range requests", async () => {
+		const h = createLspTestHarness(getNodeRecipeAnalyzer);
+		const uri = "file:///select.recipe";
+		const before = h.cursor();
+		h.notify("textDocument/didOpen", {
+			textDocument: { uri, languageId: "recipe", version: 1, text: "R/ amoxicilline 500mg\nS/ take 1" },
+		});
+		await nextDiagnosticsFor(h, uri, before);
+
+		h.request(REQUEST_SELECTION_RANGE, "textDocument/selectionRange", {
+			textDocument: { uri },
+			positions: [{ line: 0, character: 6 }],
+		});
+		const response = await h.awaitResponse(REQUEST_SELECTION_RANGE);
+		const [selection] = selectionRangesResult(response);
+		expect(selection?.range).toEqual({
+			start: { line: 0, character: 3 },
+			end: { line: 0, character: 15 },
+		});
+		expect(selection?.parent?.range).toEqual({
+			start: { line: 0, character: 3 },
+			end: { line: 0, character: 21 },
+		});
+	});
+
+	test("returns empty selection ranges for an unknown document", async () => {
+		const h = createLspTestHarness(getNodeRecipeAnalyzer);
+		h.request(REQUEST_SELECTION_RANGE_MISSING, "textDocument/selectionRange", {
+			textDocument: { uri: "file:///missing-select.recipe" },
+			positions: [{ line: 0, character: 0 }],
+		});
+		const response = await h.awaitResponse(REQUEST_SELECTION_RANGE_MISSING);
+		expect(selectionRangesResult(response)).toEqual([]);
+	});
+
+	test("answers semantic token requests", async () => {
+		const h = createLspTestHarness(getNodeRecipeAnalyzer);
+		const uri = "file:///semantic.recipe";
+		const before = h.cursor();
+		h.notify("textDocument/didOpen", {
+			textDocument: { uri, languageId: "recipe", version: 1, text: "S/ take p.o." },
+		});
+		await nextDiagnosticsFor(h, uri, before);
+
+		h.request(REQUEST_SEMANTIC_TOKENS, "textDocument/semanticTokens/full", {
+			textDocument: { uri },
+		});
+		const response = await h.awaitResponse(REQUEST_SEMANTIC_TOKENS);
+		const tokens = semanticTokensResult(response);
+		expect(tokens.data.length).toBeGreaterThan(0);
+		expect(tokens.data.length % 5).toBe(0);
+	});
+
+	test("returns empty semantic tokens for an unknown document", async () => {
+		const h = createLspTestHarness(getNodeRecipeAnalyzer);
+		h.request(REQUEST_SEMANTIC_TOKENS_MISSING, "textDocument/semanticTokens/full", {
+			textDocument: { uri: "file:///missing-semantic.recipe" },
+		});
+		const response = await h.awaitResponse(REQUEST_SEMANTIC_TOKENS_MISSING);
+		expect(semanticTokensResult(response)).toEqual({ data: [] });
 	});
 });
 

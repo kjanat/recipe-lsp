@@ -1,0 +1,19 @@
+// Folder-specific settings
+//
+// For a full list of overridable settings, and general information on folder-specific settings,
+// see the documentation: https://zed.dev/docs/configuring-zed#settings-files
+{
+	"prettier": { "allowed": false },
+	"formatter": [
+		{ "language_server": { "name": "dprint" } },
+		// Fallback to the dprint CLI in case the lsp fucks up, which it does sometimes for some reason...
+		{ "external": { "command": "dprint", "arguments": ["fmt", "--stdin", "{buffer_path}"] } }
+	],
+	"languages": {
+		"TypeScript": { "language_servers": ["vtsls", "tsgo", "biome", "eslint", "oxc"] },
+		"C": { "formatter": ["language_server", "prettier"] },
+		"C++": { "formatter": ["language_server", "prettier"] },
+		"YAML": { "language_servers": ["!actions-languageserver"] },
+		"GitHub Actions": { "language_servers": ["!actions-languageserver"] }
+	}
+}

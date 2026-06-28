@@ -1,0 +1,16 @@
+name: Publish to JSR
+on: { workflow_call: null }
+jobs:
+  publish:
+    name: Publish @kjanat/recipe-lsp
+    runs-on: ubuntu-latest
+    permissions: { contents: read, id-token: write }
+    environment: { name: jsr, url: "${{ steps.meta.outputs.url }}" }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - run: bun run build
+      - id: meta
+        run: echo "url=https://jsr.io/$(yq -r .name jsr.json)@$(yq -r .version jsr.json)" >> "$GITHUB_OUTPUT"
+      - run: bunx jsr publish

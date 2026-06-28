@@ -1,18 +1,38 @@
+import { fileURLToPath } from "node:url";
+
 import { wasm } from "rolldown-plugin-wasm";
-import type { DepsConfig, UserConfig } from "tsdown";
+import type { UserConfig } from "tsdown";
 import { defineConfig } from "tsdown";
 
-const neverBundle: DepsConfig["neverBundle"] = [
-	"tree-sitter-recipe",
-	"vscode-languageserver-textdocument",
-	"web-tree-sitter",
-	/^vscode-languageserver/u,
-];
+const PACKAGE_WASM_IMPORTS = {
+	"tree-sitter-recipe/tree-sitter-recipe.wasm?url": "tree-sitter-recipe/tree-sitter-recipe.wasm",
+	"web-tree-sitter/web-tree-sitter.wasm?url": "web-tree-sitter/web-tree-sitter.wasm",
+} as const;
 
-const browserAlwaysBundle: DepsConfig["alwaysBundle"] = [
-	"tree-sitter-recipe/tree-sitter-recipe.wasm?url",
-	"web-tree-sitter/web-tree-sitter.wasm?url",
-];
+function resolveBrowserWasmPackageImports(): {
+	name: string;
+	transform: (code: string, id: string) => { code: string; map: null } | null;
+} {
+	return {
+		name: "rewrite-browser-wasm-package-imports",
+		transform(code: string, id: string): { code: string; map: null } | null {
+			if (!id.endsWith("/src/runtime/browser-analyzer.ts")) {
+				return null;
+			}
+
+			let nextCode = code;
+			for (const [source, target] of Object.entries(PACKAGE_WASM_IMPORTS)) {
+				nextCode = nextCode.split(source).join(`${fileURLToPath(import.meta.resolve(target))}?url`);
+			}
+
+			if (nextCode === code) {
+				return null;
+			}
+
+			return { code: nextCode, map: null };
+		},
+	};
+}
 
 const shared: UserConfig = {
 	format: "es",
@@ -23,21 +43,20 @@ const shared: UserConfig = {
 	sourcemap: false,
 	minify: "dce-only",
 	clean: true,
-	plugins: [wasm({ fileName: "[name][extname]", maxFileSize: 0 })],
-	deps: { neverBundle },
 } as const;
 
 const config = defineConfig([
 	{
 		entry: "./server.ts",
 		platform: "node",
+		plugins: [wasm({ fileName: "[name][extname]", maxFileSize: 0 })],
 		...shared,
 	},
 	{
 		entry: "./browser.ts",
 		platform: "browser",
+		plugins: [resolveBrowserWasmPackageImports(), wasm({ fileName: "[name][extname]", maxFileSize: 0 })],
 		...shared,
-		deps: { neverBundle, alwaysBundle: browserAlwaysBundle },
 	},
 ]);
 

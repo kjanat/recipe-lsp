@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { DiagnosticSeverity } from "vscode-languageserver";
+import { CompletionItemKind, DiagnosticSeverity } from "vscode-languageserver";
 
 import type { RecipeAnalyzer } from "#anal/recipe-analyzer.ts";
 
@@ -196,6 +196,129 @@ describe("completionItems", () => {
 		expect(labels).toContain("Da/");
 		expect(labels).toContain("p.o.");
 		expect(labels).toContain("mg");
+	});
+});
+
+describe("completionsAt", () => {
+	function labelsAt(source: string, line: number, character: number): string[] {
+		const analysis = analyzer.analyzeRecipe(source);
+		return analyzer.completionsAt(analysis, { line, character }).map((item) => item.label);
+	}
+
+	test("an empty document offers only section markers", () => {
+		const labels = labelsAt("", 0, 0);
+
+		expect(labels).toContain("R/");
+		expect(labels).toContain("Da/");
+		expect(labels).toContain("S/");
+		expect(labels).not.toContain("mg");
+		expect(labels).not.toContain("p.o.");
+	});
+
+	test("a dose number floats units to the front", () => {
+		const source = "R/ amoxicilline 500 ";
+		const analysis = analyzer.analyzeRecipe(source);
+		const items = analyzer.completionsAt(analysis, { line: 0, character: source.length });
+
+		const [first] = items;
+		if (!first) {
+			throw new Error("expected at least one completion after a dose number");
+		}
+		expect(first.kind).toBe(CompletionItemKind.Unit);
+		expect(items.map((item) => item.label)).toContain("mg");
+	});
+
+	test("ingredient context excludes signa-only frequency vocab", () => {
+		const labels = labelsAt("R/ amoxicilline ", 0, 16);
+
+		expect(labels).toContain("mg");
+		expect(labels).not.toContain("1 dd");
+	});
+
+	test("signa context offers frequency and route directions", () => {
+		const labels = labelsAt("S/ 1 tablet ", 0, 12);
+
+		expect(labels).toContain("1 dd");
+		expect(labels).toContain("p.o.");
+		expect(labels).not.toContain("R/");
+	});
+
+	test("a fresh line offers markers alongside the open section's vocab", () => {
+		const labels = labelsAt("R/ a 1mg\n", 1, 0);
+
+		expect(labels).toContain("R/");
+		expect(labels).toContain("Da/");
+		expect(labels).toContain("mg");
+	});
+
+	test("typing the first letter of a marker still surfaces markers", () => {
+		const labels = labelsAt("R/ a 1mg\nD", 1, 1);
+
+		expect(labels).toContain("Da/");
+		expect(labels).toContain("D/");
+	});
+});
+
+describe("semantic tokens", () => {
+	test("classifies route abbreviations as function-like semantic tokens", () => {
+		const analysis = analyzer.analyzeRecipe("S/ take p.o.");
+		const functionTokenType = analyzer.semanticTokenLegend().indexOf("function");
+
+		expect(functionTokenType).toBeGreaterThanOrEqual(0);
+		expect(
+			analysis.semanticTokens.some(
+				(token) =>
+					token.line === 0
+					&& token.character === analysis.text.indexOf("p.o.")
+					&& token.tokenType === functionTokenType,
+			),
+		).toBe(true);
+	});
+});
+
+describe("folding ranges", () => {
+	test("creates a region folding range for multi-line sections", () => {
+		const analysis = analyzer.analyzeRecipe("R/ a 1mg\nb 2mg\nS/ take 1");
+
+		expect(analysis.foldingRanges).toContainEqual({
+			startLine: 0,
+			endLine: 1,
+			kind: "region",
+		});
+	});
+
+	test("creates a comment folding range for multi-line block comments", () => {
+		const analysis = analyzer.analyzeRecipe("/*\n * note\n */\nR/ a 1mg");
+
+		expect(analysis.foldingRanges).toContainEqual({
+			startLine: 0,
+			endLine: 2,
+			kind: "comment",
+		});
+	});
+});
+
+describe("selectionRanges", () => {
+	test("builds nested selection ranges from token to section", () => {
+		const analysis = analyzer.analyzeRecipe("R/ amoxicilline 500mg\nS/ take 1");
+		const position = { line: 0, character: 6 };
+		const [selection] = analyzer.selectionRanges(analysis, [position]);
+		if (!selection) {
+			throw new Error("expected a selection range");
+		}
+
+		expect(selection.range).toEqual({
+			start: { line: 0, character: 3 },
+			end: { line: 0, character: 15 },
+		});
+		expect(selection.parent?.range).toEqual({
+			start: { line: 0, character: 3 },
+			end: { line: 0, character: 21 },
+		});
+		expect(selection.parent?.parent?.range).toEqual({
+			start: { line: 0, character: 0 },
+			end: { line: 0, character: 21 },
+		});
 	});
 });
 

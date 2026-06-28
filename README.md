@@ -12,16 +12,26 @@ pharmacological notation language with two entrypoints:
 - Lightweight section-order warnings (`R/` -> `Da/` -> `S/`)
 - Document symbols for recipe sections
 - Hover help for markers, units, and Latin abbreviations
-- Static completions for markers, common directives, abbreviations, and units
+- Context-aware completions: section markers at line start, dose units right
+  after a number, and abbreviations scoped to the `R/`/`Da/`/`S/` section the
+  cursor sits in
+- Semantic tokens, folding ranges, and selection ranges
 
 ## Local dev
 
-In this monorepo, local parser linking still uses Bun because
-`tree-sitter-recipe` is a sibling package:
+`tree-sitter-recipe` is a published dependency, so a plain install pulls the
+grammar (and its wasm) from the registry:
+
+```bash
+bun install
+```
+
+To develop against an unpublished local grammar, link the sibling checkout
+first:
 
 ```bash
 cd ../tree-sitter-recipe && bun link
-cd ../recipe-lsp && bun install
+cd ../recipe-lsp && bun link tree-sitter-recipe
 ```
 
 Build once, then run with Node:
@@ -64,7 +74,7 @@ The worker can be served directly from `dist/` or rebundled by an app:
 
 ```ts
 new Worker(new URL("recipe-lsp/dist/browser.js", import.meta.url), {
-	type: "module",
+  type: "module",
 });
 ```
 
