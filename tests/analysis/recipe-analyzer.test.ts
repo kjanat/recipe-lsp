@@ -188,6 +188,53 @@ describe("hoverForPosition with multi-byte input", () => {
 	});
 });
 
+describe("hoverForPosition meanings", () => {
+	function hoverValue(source: string, character: number): string {
+		const analysis = analyzer.analyzeRecipe(source);
+		const hover = analyzer.hoverForPosition(analysis, { line: 0, character });
+		if (
+			!hover
+			|| typeof hover.contents === "string"
+			|| Array.isArray(hover.contents)
+			|| !("value" in hover.contents)
+		) {
+			throw new Error("expected a markdown hover");
+		}
+		return hover.contents.value;
+	}
+
+	test("expands a dispensing abbreviation to its Latin and Dutch meaning", () => {
+		const source = "S/ 1 tablet d.i.m.m.";
+		const value = hoverValue(source, source.indexOf("d.i.m.m.") + 1);
+
+		expect(value).toContain("da in mano medici");
+		expect(value).toContain("in handen van de arts");
+	});
+
+	test("expands a compounding abbreviation", () => {
+		const source = "R/ a 1mg q.s.";
+		const value = hoverValue(source, source.indexOf("q.s.") + 1);
+
+		expect(value).toContain("quantum satis");
+		expect(value).toContain("zoveel als nodig");
+	});
+
+	test("expands the dtd directive keyword reached through an anonymous node", () => {
+		const source = "R/ a 1mg dtd no 21";
+		const value = hoverValue(source, source.indexOf("dtd") + 1);
+
+		expect(value).toContain("da tales doses");
+	});
+
+	test("falls back to the generic category for a recognized but unglossed token", () => {
+		const source = "R/ a 1mg d.s.p.";
+		const value = hoverValue(source, source.indexOf("d.s.p.") + 1);
+
+		expect(value).toContain("Dispensing abbreviation");
+		expect(value).not.toContain("da in mano");
+	});
+});
+
 describe("completionItems", () => {
 	test("contains markers, abbreviations, and units", () => {
 		const labels = analyzer.completionItems().map((item) => item.label);

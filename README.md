@@ -11,7 +11,9 @@ pharmacological notation language with two entrypoints:
 - Tree-sitter-backed syntax diagnostics
 - Lightweight section-order warnings (`R/` -> `Da/` -> `S/`)
 - Document symbols for recipe sections
-- Hover help for markers, units, and Latin abbreviations
+- Hover help that expands Latin abbreviations to their meaning (e.g.
+  `d.i.m.m.` -> _da in mano medici_ / "in handen van de arts"), plus markers
+  and dose units
 - Context-aware completions: section markers at line start, dose units right
   after a number, and abbreviations scoped to the `R/`/`Da/`/`S/` section the
   cursor sits in

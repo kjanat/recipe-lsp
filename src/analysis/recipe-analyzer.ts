@@ -50,10 +50,10 @@ export function hoverForPosition(
 	position: Position,
 ): Hover | null {
 	const point = toPoint(analysis.lines, position);
-	let current: Node | null = analysis.tree.rootNode.namedDescendantForPosition(
-		point,
-		point,
-	);
+	// Start from the full descendant (not just named nodes) so anonymous keyword
+	// tokens like `dtd_keyword` and `fill_marker` are reachable; the walk climbs
+	// `.parent` to find the nearest node with hover info either way.
+	let current: Node | null = analysis.tree.rootNode.descendantForPosition(point, point);
 
 	while (current) {
 		const info = hoverInfoForNode(current.type, current.text);

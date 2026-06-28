@@ -1,5 +1,7 @@
 import { ACTIVITY, COUNTABLE, MASS, RATE, VOLUME } from "tree-sitter-recipe/grammar/units";
 
+import { glossFor } from "./glossary.ts";
+
 interface HoverInfo {
 	title: string;
 	detail: string;
@@ -88,5 +90,17 @@ export function hoverInfoForNode(nodeType: string, token: string): HoverInfo | n
 		return unitHover(token);
 	}
 
-	return NODE_HOVER_INFO.get(nodeType) ?? null;
+	const base = NODE_HOVER_INFO.get(nodeType);
+	if (!base) {
+		return null;
+	}
+
+	// When the token has a known meaning, lead with the Latin expansion and the
+	// Dutch gloss, keeping the category as a subordinate label.
+	const gloss = glossFor(token);
+	if (gloss) {
+		return { title: gloss.latin, detail: `${gloss.nl}\n\n*${base.title}*` };
+	}
+
+	return base;
 }
