@@ -86,7 +86,11 @@ function serverCapabilities(analyzer: RecipeAnalyzer): InitializeResult {
 				},
 			},
 			completionProvider: {
-				triggerCharacters: ["/", "."],
+				// `/` opens a marker (`R/`, `Da/`). `.` is deliberately NOT a trigger:
+				// abbreviations auto-trigger on letters, and triggering on `.` forces a
+				// mid-token re-request that resets the client's filter (so `p.` would
+				// drop `p.c.`). Letting the open list keep filtering avoids that.
+				triggerCharacters: ["/"],
 			},
 		},
 	};
