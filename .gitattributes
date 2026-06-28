@@ -1,0 +1,2 @@
+server.ts linguist-language=TYPESCRIPT
+*.ts linguist-language=TYPESCRIPT
