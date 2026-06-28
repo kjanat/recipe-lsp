@@ -330,7 +330,8 @@ describe("completionsAt", () => {
 		if (!pc || typeof pc.documentation !== "object" || !("value" in pc.documentation)) {
 			throw new Error("expected markdown documentation on p.c.");
 		}
-		expect(pc.detail).toBe("post cibum");
+		expect(pc.detail).toContain("post cibum");
+		expect(pc.detail).toContain("na de maaltijd");
 		expect(pc.documentation.value).toContain("na de maaltijd");
 	});
 });

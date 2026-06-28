@@ -67,14 +67,15 @@ function vocabCompletion(
 	documentation: string,
 	kind: CompletionItemKind,
 ): CompletionItem {
-	// When the token has a known meaning, surface the Latin expansion inline and
-	// the Dutch gloss in the docs, keeping the category as a subordinate label.
+	// When the token has a known meaning, show the Latin expansion AND the Dutch
+	// meaning inline (the Dutch is what the user actually needs), keeping the
+	// category as a subordinate label in the docs popup.
 	const gloss = glossFor(label);
 	if (gloss) {
 		return buildCompletion({
 			label,
-			detail: gloss.latin,
-			documentation: `${gloss.nl}\n\n*${detail}*`,
+			detail: `${gloss.latin} — ${gloss.nl}`,
+			documentation: `**${gloss.latin}** — ${gloss.nl}\n\n*${detail}*`,
 			kind,
 		});
 	}
