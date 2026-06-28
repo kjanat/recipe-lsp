@@ -47,16 +47,17 @@ const shared: UserConfig = {
 
 const config = defineConfig([
 	{
+		...shared,
 		entry: "./server.ts",
 		platform: "node",
 		plugins: [wasm({ fileName: "[name][extname]", maxFileSize: 0 })],
-		...shared,
 	},
 	{
+		...shared,
 		entry: "./browser.ts",
 		platform: "browser",
+		minify: true,
 		plugins: [resolveBrowserWasmPackageImports(), wasm({ fileName: "[name][extname]", maxFileSize: 0 })],
-		...shared,
 	},
 ]);
 
