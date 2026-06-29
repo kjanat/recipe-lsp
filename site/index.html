@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>recipe-lsp · live browser demo</title>
+		<meta
+			name="description"
+			content="The recipe-lsp language server running entirely in the browser, loaded live from jsDelivr."
+		/>
+		<link rel="stylesheet" href="./style.css" />
+	</head>
+	<body>
+		<header>
+			<h1>recipe-lsp <span class="sub">in the browser</span></h1>
+			<p class="lede">
+				The <a href="https://jsr.io/@kjanat/recipe-lsp">recipe-lsp</a> language
+				server, compiled to WebAssembly and run in a Web Worker — no backend.
+				The worker is imported <strong>live from jsDelivr</strong> at page load;
+				nothing here is bundled.
+			</p>
+			<div id="status" data-state="loading">Loading…</div>
+		</header>
+
+		<main>
+			<section class="pane editor-pane">
+				<div class="pane-head">
+					<h2>Recipe</h2>
+					<div id="caps" class="caps"></div>
+				</div>
+				<textarea
+					id="editor"
+					spellcheck="false"
+					autocomplete="off"
+					autocapitalize="off"
+					disabled
+					aria-label="recipe source"
+				></textarea>
+			</section>
+
+			<section class="pane">
+				<h2>Diagnostics</h2>
+				<ul id="diagnostics" class="list"></ul>
+				<h2>Sections</h2>
+				<ul id="symbols" class="list"></ul>
+			</section>
+		</main>
+
+		<footer>
+			<p>
+				<code>new Worker("./recipe-worker.js", { type: "module" })</code> →
+				<code>import
+					"https://cdn.jsdelivr.net/npm/recipe-lsp/dist/browser.js"</code>
+			</p>
+			<p>
+				<a href="https://github.com/kjanat/recipe-lsp">source</a> ·
+				<a href="https://www.npmjs.com/package/recipe-lsp">npm</a> ·
+				<a href="https://jsr.io/@kjanat/recipe-lsp">JSR</a>
+			</p>
+		</footer>
+
+		<script type="module" src="./app.js"></script>
+	</body>
+</html>

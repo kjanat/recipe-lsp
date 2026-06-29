@@ -74,6 +74,9 @@ path requires **Node ≥ 22.22.2** (dreamcli's floor).
 
 ## Browser worker
 
+**[Live demo →](https://kjanat.github.io/recipe-lsp/)** — the server running in
+your browser, loaded straight from jsDelivr ([source](site/)).
+
 `recipe-lsp/browser` is a self-contained module Web Worker: every dependency is
 bundled in, and the two wasm grammars ship next to `dist/browser.js` and are
 loaded relative to the bundle's own URL. So it runs from a bare `new Worker(url)`
