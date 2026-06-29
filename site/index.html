@@ -6,18 +6,43 @@
 		<title>recipe-lsp · live browser demo</title>
 		<meta
 			name="description"
-			content="The recipe-lsp language server running entirely in the browser, loaded live from jsDelivr."
+			content="The recipe-lsp language server running entirely in the browser inside a CodeMirror editor, loaded live from jsDelivr + esm.sh."
 		/>
 		<link rel="stylesheet" href="./style.css" />
+		<script type="importmap">
+		{
+			"imports": {
+				"@codemirror/autocomplete": "https://esm.sh/*@codemirror/autocomplete@6",
+				"@codemirror/commands": "https://esm.sh/*@codemirror/commands@6",
+				"@codemirror/language": "https://esm.sh/*@codemirror/language@6",
+				"@codemirror/lint": "https://esm.sh/*@codemirror/lint@6",
+				"@codemirror/state": "https://esm.sh/@codemirror/state@6",
+				"@codemirror/view": "https://esm.sh/*@codemirror/view@6",
+				"@lezer/common": "https://esm.sh/@lezer/common@1",
+				"@lezer/highlight": "https://esm.sh/*@lezer/highlight@1",
+				"@lezer/lr": "https://esm.sh/*@lezer/lr@1",
+				"@shikijs/themes/github-dark": "https://esm.sh/@shikijs/themes@3/github-dark",
+				"crelt": "https://esm.sh/crelt@1",
+				"shiki/core": "https://esm.sh/shiki@3/core",
+				"shiki/engine/oniguruma": "https://esm.sh/shiki@3/engine/oniguruma",
+				"shiki/wasm": "https://esm.sh/shiki@3/wasm",
+				"style-mod": "https://esm.sh/style-mod@4",
+				"w3c-keyname": "https://esm.sh/w3c-keyname@2"
+			}
+		}
+		</script>
 	</head>
 	<body>
 		<header>
 			<h1>recipe-lsp <span class="sub">in the browser</span></h1>
 			<p class="lede">
-				The <a href="https://jsr.io/@kjanat/recipe-lsp">recipe-lsp</a> language
-				server, compiled to WebAssembly and run in a Web Worker — no backend.
-				The worker is imported <strong>live from jsDelivr</strong> at page load;
-				nothing here is bundled.
+				A <a href="https://codemirror.net/">CodeMirror</a> editor wired to the
+				<a href="https://jsr.io/@kjanat/recipe-lsp">recipe-lsp</a> language
+				server — compiled to WebAssembly and run in a Web Worker, no backend.
+				The server is imported <strong>live from jsDelivr</strong>, the editor
+				from
+				<strong>esm.sh</strong>. Highlighting, squiggles, hover and completion
+				all come from the LSP.
 			</p>
 			<div id="status" data-state="loading">Loading…</div>
 		</header>
@@ -25,17 +50,14 @@
 		<main>
 			<section class="pane editor-pane">
 				<div class="pane-head">
-					<h2>Recipe</h2>
+					<h2>recipe</h2>
 					<div id="caps" class="caps"></div>
 				</div>
-				<textarea
-					id="editor"
-					spellcheck="false"
-					autocomplete="off"
-					autocapitalize="off"
-					disabled
-					aria-label="recipe source"
-				></textarea>
+				<div id="editor"></div>
+				<p class="tip">
+					Try: delete the <code>R/</code> line, type <code>p.</code> after the
+					dose, or hover an abbreviation.
+				</p>
 			</section>
 
 			<section class="pane">
@@ -48,13 +70,13 @@
 
 		<footer>
 			<p>
-				<code>new Worker("./recipe-worker.js", { type: "module" })</code> →
 				<code>import
-					"https://cdn.jsdelivr.net/npm/recipe-lsp/dist/browser.js"</code>
+					"https://cdn.jsdelivr.net/npm/recipe-lsp/dist/browser.js"</code> in a
+				same-origin worker · editor via <code>esm.sh</code> import map
 			</p>
 			<p>
 				<a href="https://github.com/kjanat/recipe-lsp">source</a> ·
-				<a href="https://www.npmjs.com/package/recipe-lsp">npm</a> ·
+				<a href="https://npm.im/recipe-lsp">npm</a> ·
 				<a href="https://jsr.io/@kjanat/recipe-lsp">JSR</a>
 			</p>
 		</footer>
