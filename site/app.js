@@ -106,18 +106,12 @@ function shikiHighlighter(shiki) {
 	);
 }
 
-// The recipe TextMate grammar (the same one `recipe-shiki` ships) — fetched as
-// raw JSON and wrapped into a Shiki LanguageRegistration, exactly as recipe-shiki
-// does. We fetch it directly because recipe-shiki's esm.sh build imports the
-// `.json` without a type assertion, which browsers reject.
-const RECIPE_GRAMMAR_URL = "https://cdn.jsdelivr.net/npm/recipe-tmlanguage@0.3.5/recipe.tmLanguage.json";
-
+// Shiki with the recipe TextMate grammar via the `recipe-shiki` language pack,
+// imported live from esm.sh (the fine-grained bundle recommended for browsers).
 async function createShiki() {
-	const grammar = await fetch(RECIPE_GRAMMAR_URL).then((response) => response.json());
-	const recipe = { ...grammar, name: "recipe", scopeName: "source.recipe", displayName: "Recipe" };
 	return createHighlighterCore({
 		themes: [import("@shikijs/themes/github-dark")],
-		langs: [recipe],
+		langs: [import("recipe-shiki")],
 		engine: createOnigurumaEngine(import("shiki/wasm")),
 	});
 }
