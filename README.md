@@ -4,8 +4,9 @@
 [![JSR](https://img.shields.io/jsr/v/@kjanat/recipe-lsp?logoColor=083344&logo=jsr&logoSize=auto&label=&labelColor=f7df1e&color=black)][jsr]
 
 A Language Server Protocol implementation for the **Recipe** (`.recipe`)
-pharmacological-notation language. Published to [npm][npm] (`recipe-lsp`) and
-[JSR][jsr] (`@kjanat/recipe-lsp`), with three entrypoints:
+pharmacological-notation language.\
+Published to [npm] (`recipe-lsp`) and [JSR] (`jsr:@kjanat/recipe-lsp`), with
+three entrypoints:
 
 | Import               | What it is                                                               |
 | -------------------- | ------------------------------------------------------------------------ |
@@ -73,20 +74,26 @@ path requires **Node ≥ 22.22.2** (dreamcli's floor).
 
 ## Browser worker
 
-`recipe-lsp/browser` is a module Web Worker that wires the `fetch`-backed
-analyzer to a worker message channel. The wasm grammars are resolved at runtime
-via `import.meta.resolve` — **no wasm is bundled into `dist/`**, so any consumer
-(bundler, Deno, or a CDN) supplies them from the package.
+`recipe-lsp/browser` is a self-contained module Web Worker: every dependency is
+bundled in, and the two wasm grammars ship next to `dist/browser.js` and are
+loaded relative to the bundle's own URL. So it runs from a bare `new Worker(url)`
+with no import map, bundler, or dependency resolution.
 
-Served straight from a CDN that does package resolution (the URL is absolute, so
-no bundler is required):
+Load it from a CDN that serves the package files flat (so the sibling `.wasm`
+assets resolve), e.g. jsDelivr:
 
 ```ts
-new Worker("https://esm.sh/recipe-lsp/browser", { type: "module" });
+new Worker("https://cdn.jsdelivr.net/npm/recipe-lsp/dist/browser.js", {
+  type: "module",
+});
 ```
 
-Inside a bundler (Vite/webpack/esbuild), import the worker the bundler's way; it
-will resolve the package export and emit the wasm as assets.
+The worker speaks LSP over the worker message channel (`postMessage` the
+JSON-RPC `initialize`, then `textDocument/didOpen`, …).
+
+> A re-exporting CDN that relocates modules into a transformed subpath (e.g.
+> `esm.sh/recipe-lsp/browser`) breaks the sibling-relative wasm URLs — use a
+> flat file CDN, or import the worker through your own bundler.
 
 ## Notes
 

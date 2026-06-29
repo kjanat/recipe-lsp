@@ -1,9 +1,13 @@
 import { $ } from "bun";
-import { beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { PathLike } from "node:fs";
-import { access, constants, readdir, readFile } from "node:fs/promises";
+import { access, constants, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import type { Browser } from "playwright";
+
+import { driveRecipeWorker, serveDir, TEST_ORIGIN, tryLaunchChromium } from "#testsupport/worker-harness.ts";
 
 const repoRoot = dirname(fileURLToPath(import.meta.resolve("#pkg")));
 const distDir = join(repoRoot, "dist");
@@ -13,11 +17,15 @@ const [builtServerPath, builtBrowserPath] = [
 	join(distDir, "browser.js"),
 ];
 
+let browser: Browser | null = null;
+
 beforeAll(async () => {
-	const build = await $`bun run build`.cwd(repoRoot).nothrow().quiet();
-	if (build.exitCode !== 0) {
-		throw new Error(`build failed\nstdout:\n${build.stdout.toString()}\n\nstderr:\n${build.stderr.toString()}`);
-	}
+	// `dist/` is built once for the whole run by the test preload (bunfig.toml).
+	browser = await tryLaunchChromium();
+});
+
+afterAll(async () => {
+	await browser?.close();
 });
 
 async function fileExists(path: PathLike): Promise<boolean> {
@@ -30,28 +38,50 @@ async function fileExists(path: PathLike): Promise<boolean> {
 }
 
 describe("built output smoke", () => {
-	test("browser build resolves wasm at runtime, emits no wasm assets", async () => {
-		// The browser entry pulls in an analyzer chunk (exact chunk name is rolldown's call).
+	test("browser worker bundle is self-contained with sibling wasm assets", async () => {
+		// The `./browser` worker must run from a bare-CDN `new Worker(url)` with no
+		// import map and no dependency resolution. So the bundle inlines every dep
+		// (no bare external imports) and references the wasm relative to its own URL.
 		const browserBundle = await readFile(builtBrowserPath, "utf8");
-		expect(browserBundle).toMatch(/browser-analyzer\w*\.js/u);
+		// Strip block comments — bundled deps carry JSDoc `@example` imports that are
+		// not real statements (e.g. `* import { X } from "@kjanat/..."`).
+		const code = browserBundle.replace(/\/\*[\s\S]*?\*\//gu, "");
 
-		// Some emitted chunk resolves the wasm at runtime via `import.meta.resolve`
-		// of the package specifiers — not inlined as bundler-only `?url` assets.
-		const jsChunks = (await readdir(distDir)).filter((file) => file.endsWith(".js"));
-		const chunks = await Promise.all(jsChunks.map((file) => readFile(join(distDir, file), "utf8")));
-		const analyzerChunk = chunks.find(
-			(chunk) => chunk.includes("import.meta.resolve") && chunk.includes("tree-sitter-recipe/tree-sitter-recipe.wasm"),
-		);
-		if (analyzerChunk === undefined) {
-			throw new Error("expected a chunk that resolves the recipe wasm at runtime");
-		}
-		expect(analyzerChunk).toContain("web-tree-sitter/web-tree-sitter.wasm");
-		expect(analyzerChunk).not.toContain("?url");
+		// No bare external `import ... from "pkg"` survives — everything is inlined.
+		const bareImports = code.match(/from\s*"(?!\.\/|\.\.\/|node:)[^"]+"/gu);
+		expect(bareImports).toBeNull();
 
-		// No wasm is emitted to dist; consumers resolve it from node_modules.
-		expect(await fileExists(join(distDir, "web-tree-sitter.wasm"))).toBeFalse();
-		expect(await fileExists(join(distDir, "tree-sitter-recipe.wasm"))).toBeFalse();
+		// Wasm is resolved relative to the module URL (works on any flat-serving CDN),
+		// not via a bare `import.meta.resolve` specifier (which throws in a worker).
+		expect(browserBundle).not.toContain("import.meta.resolve");
+		expect(browserBundle).toMatch(/new URL\(\s*[`"']tree-sitter-recipe\.wasm[`"']\s*,\s*import\.meta\.url\s*\)/u);
+		expect(browserBundle).toMatch(/new URL\(\s*[`"']web-tree-sitter\.wasm[`"']\s*,\s*import\.meta\.url\s*\)/u);
+
+		// The referenced wasm assets are emitted as siblings of the bundle.
+		expect(await fileExists(join(distDir, "tree-sitter-recipe.wasm"))).toBeTrue();
+		expect(await fileExists(join(distDir, "web-tree-sitter.wasm"))).toBeTrue();
 	});
+
+	test("browser worker runs end-to-end as a CDN-style module worker", async () => {
+		if (browser === null) {
+			console.warn("[skip] no Chromium — run `bunx playwright install chromium` to exercise the worker");
+			return;
+		}
+		// Serve dist/ at a real origin (no standing server), mirroring a flat CDN's
+		// `/<pkg>/dist/browser.js` layout so the sibling-relative wasm URLs resolve.
+		const page = await browser.newPage();
+		await serveDir(page, repoRoot);
+		await page.goto(`${TEST_ORIGIN}/`);
+		const probe = await driveRecipeWorker(page, `${TEST_ORIGIN}/dist/browser.js`);
+		await page.close();
+
+		expect(probe.errors).toEqual([]);
+		expect(probe.gotInitialize).toBeTrue();
+		expect(probe.capabilities).toContain("completionProvider");
+		// The worker compiled the grammar wasm and analysed the document.
+		expect(probe.diagnostics.length).toBeGreaterThan(0);
+		expect(probe.diagnostics.flatMap((d) => d.messages)).toContain("S/ must follow an R/ section.");
+	}, 60_000);
 
 	test("built CLI prints help", async () => {
 		const result = await $`node ${builtServerPath} --help`.cwd(repoRoot).nothrow().quiet();

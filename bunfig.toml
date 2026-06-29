@@ -1,3 +1,4 @@
 [test]
 coverage = true
-coveragePathIgnorePatterns = ["tests/**"]
+coveragePathIgnorePatterns = ["tests/**", "preload.ts"]
+preload = ["./preload.ts"]

@@ -14,6 +14,7 @@ jobs:
       - run: bun run typecheck # tsc --noEmit over src + tests
       - run: bun run check # biome check (lint + format)
       - run: bun run lint # biome lint
+      - run: bunx playwright install --with-deps chromium # browser for the worker e2e
       - run: bun test
       - run: bun run build # proves dist emits from both npm entries
       - run: bunx jsr publish --dry-run # validates the jsr entry: resolution + slow-types

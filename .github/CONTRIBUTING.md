@@ -21,6 +21,25 @@ bun run check       # biome check
 bun fmt             # dprint fmt
 ```
 
+## Tests
+
+`bun test` covers the analysis units plus a `dist/` smoke suite. The
+browser-worker end-to-end test launches headless Chromium (via Playwright) and
+drives the built `dist/browser.js` worker through a real LSP handshake; it
+**skips** when no browser binary is installed:
+
+```bash
+bunx playwright install chromium   # one-time, enables the worker e2e
+```
+
+A second, opt-in end-to-end test hits the **live CDN** against the _published_
+package — run it after publishing to confirm `new Worker(cdnUrl)` still works:
+
+```bash
+CDN_E2E=1 bun test tests/e2e/cdn-worker.test.ts
+CDN_E2E=1 CDN_E2E_URL="https://cdn.jsdelivr.net/npm/recipe-lsp@<version>/dist/browser.js" bun test tests/e2e/cdn-worker.test.ts
+```
+
 ## Architecture notes
 
 - The server reparses the whole document on change. Recipe files are tiny;
@@ -36,3 +55,5 @@ bun fmt             # dprint fmt
 `jsr.json` and `package.json` versions must match (CI gates on it). Push a
 GPG-signed `vX.Y.Z` tag on `master`; `release.yml` then publishes to npm and JSR
 via OIDC trusted publishing — no tokens.
+
+<!-- rumdl-disable-file MD013 -->

@@ -1,6 +1,6 @@
 {
 	"name": "recipe-lsp",
-	"version": "0.2.1",
+	"version": "0.2.2",
 	"description": "Language Server Protocol server for the recipe (.recipe) pharmacological notation language.",
 	"keywords": [
 		"lsp",
@@ -71,6 +71,7 @@
 		"@kjanat/dreamcli": "^2.5.0",
 		"@types/bun": "^1.3.14",
 		"dprint": "^0.55.1",
+		"playwright": "^1.61.0",
 		"publint": "^0.3.21",
 		"rolldown-plugin-wasm": "^0.3.2",
 		"runner-run": "^0.14.3",
